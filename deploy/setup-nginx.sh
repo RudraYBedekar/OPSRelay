@@ -20,6 +20,10 @@ fi
 echo "=== Configuring nginx ==="
 echo "App root: $APP_ROOT"
 
+# nginx (www-data) must traverse /home/ubuntu to reach dist/
+chmod 755 /home/ubuntu 2>/dev/null || true
+chmod -R 755 "$APP_ROOT/dist" 2>/dev/null || true
+
 sudo rm -f /etc/nginx/sites-enabled/opsrelay
 sudo rm -f /etc/nginx/sites-available/opsrelay
 

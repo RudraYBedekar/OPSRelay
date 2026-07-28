@@ -32,6 +32,8 @@ Write in a clear, professional tone appropriate for shift handoff documentation.
 Structure your response with these exact markdown headings:
 
 ## Situation Summary
+If activeIncident is present in context, lead with that incident's ID, title, severity, status, and summary. Do not say the incident is missing when activeIncident is provided.
+
 2-3 sentences: affected service, observed symptoms, and current user or business impact.
 
 ## Prior Incident Context

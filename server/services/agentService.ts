@@ -48,17 +48,21 @@ export interface AgentResult {
 function buildLocalAgentAnswer(
   queryText: string,
   similar: AgentResult['similarIncidents'],
-  active: Record<string, unknown> | null,
+  activeIncident: Record<string, unknown> | null,
   embedMode: string,
 ): string {
   const top = similar[0];
 
   let text = `## Situation Summary\n\n`;
   text += `The on-call engineer asked: "${queryText}". `;
-  if (active) {
-    text += `Active incident **${active.id}** (${active.severity}) affects **${active.service}** and is currently **${active.status}**. `;
+  if (activeIncident) {
+    text += `**${activeIncident.id}** (${activeIncident.severity}) — **${activeIncident.title}** affects **${activeIncident.service}** and is **${activeIncident.status}**. `;
+    text += `${activeIncident.summary ?? ''}\n\n`;
+  } else if (similar[0]) {
+    text += `Vector search returned **${similar.length}** relevant prior incident${similar.length === 1 ? '' : 's'} from the OpsRelay knowledge base.\n\n`;
+  } else {
+    text += `No matching incident was found in the database.\n\n`;
   }
-  text += `Vector search returned **${similar.length}** relevant prior incident${similar.length === 1 ? '' : 's'} from the OpsRelay knowledge base.\n\n`;
 
   text += `## Prior Incident Context\n\n`;
   if (similar.length === 0) {
@@ -121,6 +125,28 @@ function buildSuggestedTasks(queryText: string, similar: AgentResult['similarInc
   return tasks.slice(0, 4);
 }
 
+/** Extract incident ID from natural language queries like "INC-8958 check this incident" */
+export function extractIncidentId(text: string): string | null {
+  const match = text.match(/\bINC-\d+\b/i);
+  return match ? match[0].toUpperCase() : null;
+}
+
+function incidentToMatch(
+  inc: IncidentRecord & { severity?: string; status?: string; title?: string; fixesApplied?: string[] },
+  similarityScore: number,
+) {
+  return {
+    id: inc.id,
+    title: inc.title,
+    service: inc.service,
+    summary: inc.summary,
+    similarityScore,
+    keyTakeaway: inc.fixesApplied?.[0] ?? inc.summary.slice(0, 120),
+    severity: inc.severity,
+    status: inc.status,
+  };
+}
+
 export async function runAgent(queryText: string, incidentId?: string): Promise<AgentResult> {
   const steps: AgentStep[] = [];
   const embeddingCount = await getEmbeddingCount();
@@ -175,29 +201,48 @@ export async function runAgent(queryText: string, incidentId?: string): Promise<
 
   const similarIncidents = hits.map((hit) => {
     const inc = incidents.find((i) => i.id === hit.incidentId);
-    return {
-      id: hit.incidentId,
-      title: inc?.title ?? hit.incidentId,
-      service: hit.service,
-      summary: inc?.summary ?? hit.content.slice(0, 200),
-      similarityScore: hit.similarityScore,
-      keyTakeaway: inc?.fixesApplied?.[0] ?? hit.content.slice(0, 120),
-      severity: inc?.severity,
-      status: inc?.status,
-    };
+    return incidentToMatch(
+      {
+        id: hit.incidentId,
+        title: inc?.title ?? hit.incidentId,
+        service: hit.service,
+        summary: inc?.summary ?? hit.content.slice(0, 200),
+        fixesApplied: inc?.fixesApplied,
+        severity: inc?.severity,
+        status: inc?.status,
+      },
+      hit.similarityScore,
+    );
   });
 
+  const queriedIncidentId = incidentId ?? extractIncidentId(queryText);
   let activeIncident: Record<string, unknown> | null = null;
-  if (incidentId) {
-    const row = await queryOne<{ data: Record<string, unknown> }>(
-      'SELECT data FROM incidents WHERE id = $1',
-      [incidentId],
-    );
-    activeIncident = row?.data ?? null;
+
+  if (queriedIncidentId) {
+    const fromList = incidents.find((i) => i.id === queriedIncidentId);
+    if (fromList) {
+      activeIncident = fromList as Record<string, unknown>;
+    } else {
+      const row = await queryOne<{ data: Record<string, unknown> }>(
+        'SELECT data FROM incidents WHERE id = $1',
+        [queriedIncidentId],
+      );
+      activeIncident = row?.data ?? null;
+    }
+
+    if (activeIncident) {
+      const direct = incidentToMatch(activeIncident as IncidentRecord, 100);
+      const withoutDup = similarIncidents.filter((s) => s.id !== queriedIncidentId);
+      similarIncidents.length = 0;
+      similarIncidents.push(direct, ...withoutDup.slice(0, 4));
+    }
+
     steps.push({
       step: 4,
-      action: 'Load active incident context',
-      detail: `Attached context for ${incidentId}`,
+      action: 'Direct incident lookup',
+      detail: activeIncident
+        ? `Loaded ${queriedIncidentId} from database (ID match in query)`
+        : `No incident found for ${queriedIncidentId}`,
       status: activeIncident ? 'done' : 'skipped',
     });
   }

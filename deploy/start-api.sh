@@ -15,7 +15,7 @@ fi
 echo "=== Starting API with PM2 ==="
 
 pm2 delete opsrelay-api 2>/dev/null || true
-pm2 start "$SCRIPT_DIR/pm2.ecosystem.cjs"
+pm2 start npm --name opsrelay-api -- run start:prod
 pm2 save
 
 echo "✅ API running"

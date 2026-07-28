@@ -148,6 +148,7 @@ export function keywordSearchFallback(
   return incidents
     .map((inc) => {
       let score = 60;
+      if (lower.includes(inc.id.toLowerCase())) score = 100;
       if (lower.includes(inc.service.toLowerCase())) score += 20;
       if (lower.includes(inc.summary.toLowerCase().slice(0, 50))) score += 10;
       if (lower.includes('db') && inc.summary.toLowerCase().includes('cockroach')) score += 10;
