@@ -1,0 +1,253 @@
+import { query, queryOne } from '../db.js';
+import { isBedrockConfigured } from '../config/bedrock.js';
+import { generateAgentResponse } from './llmService.js';
+import { getEmbedMode } from './embedService.js';
+import {
+  searchSimilarIncidents,
+  keywordSearchFallback,
+  getEmbeddingCount,
+  type IncidentRecord,
+} from './vectorService.js';
+
+export interface AgentStep {
+  step: number;
+  action: string;
+  detail: string;
+  status: 'done' | 'skipped';
+}
+
+export interface SuggestedTask {
+  title: string;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  rationale: string;
+}
+
+export interface AgentResult {
+  answer: string;
+  similarIncidents: Array<{
+    id: string;
+    title: string;
+    service: string;
+    summary: string;
+    similarityScore: number;
+    keyTakeaway: string;
+    severity?: string;
+    status?: string;
+  }>;
+  steps: AgentStep[];
+  suggestedTasks: SuggestedTask[];
+  mode: 'bedrock' | 'local' | 'keyword';
+  embeddingCount: number;
+  triage?: {
+    suggestedSeverity: string;
+    suggestedService: string;
+    confidence: number;
+  };
+}
+
+function buildLocalAgentAnswer(
+  queryText: string,
+  similar: AgentResult['similarIncidents'],
+  active: Record<string, unknown> | null,
+  embedMode: string,
+): string {
+  const top = similar[0];
+
+  let text = `## Situation Summary\n\n`;
+  text += `The on-call engineer asked: "${queryText}". `;
+  if (active) {
+    text += `Active incident **${active.id}** (${active.severity}) affects **${active.service}** and is currently **${active.status}**. `;
+  }
+  text += `Vector search returned **${similar.length}** relevant prior incident${similar.length === 1 ? '' : 's'} from the OpsRelay knowledge base.\n\n`;
+
+  text += `## Prior Incident Context\n\n`;
+  if (similar.length === 0) {
+    text += `No strong historical matches were found. Proceed with standard triage: confirm metrics, check recent deploys, and document findings.\n\n`;
+  } else {
+    for (const m of similar) {
+      text += `- **${m.id}** (${m.similarityScore}% relevance) — ${m.title}. `;
+      text += `Prior remediation: ${m.keyTakeaway}\n`;
+    }
+    text += `\n`;
+  }
+
+  text += `## Recommended Actions\n\n`;
+  text += `1. Review **${top?.id ?? 'similar incidents'}** for proven mitigations and timeline patterns.\n`;
+  text += `2. Inspect **${top?.service ?? 'affected service'}** dashboards (error rate, latency, connection pools).\n`;
+  text += `3. Confirm blast radius and communicate status to stakeholders if user impact is confirmed.\n`;
+  text += `4. Log decisions and timeline updates in OpsRelay for shift handoff.\n\n`;
+
+  text += `## Follow-up Tasks\n\n`;
+  text += `- Create action items for any configuration or code changes identified during triage\n`;
+  text += `- Schedule post-incident review if severity is SEV-0 or SEV-1\n`;
+  text += `- Enable AWS Bedrock for full Nova-powered agent reasoning (current mode: ${embedMode})\n`;
+
+  return text;
+}
+
+function inferTriage(queryText: string, similar: AgentResult['similarIncidents']) {
+  const lower = queryText.toLowerCase();
+  let severity = similar[0]?.severity ?? 'SEV-2';
+  if (lower.includes('oom') || lower.includes('outage') || lower.includes('down')) severity = 'SEV-0';
+  else if (lower.includes('429') || lower.includes('500') || lower.includes('pool')) severity = 'SEV-1';
+
+  const service = similar[0]?.service ?? 'unknown-service';
+  return { suggestedSeverity: severity, suggestedService: service, confidence: similar[0]?.similarityScore ?? 70 };
+}
+
+function buildSuggestedTasks(queryText: string, similar: AgentResult['similarIncidents']): SuggestedTask[] {
+  const top = similar[0];
+  const tasks: SuggestedTask[] = [
+    {
+      title: `Review runbook for ${top?.service ?? 'affected service'}`,
+      priority: 'HIGH',
+      rationale: `Vector match ${top?.similarityScore ?? 0}% with ${top?.id ?? 'past incident'}`,
+    },
+    {
+      title: 'Document timeline and decisions in OpsRelay',
+      priority: 'MEDIUM',
+      rationale: 'Shift handoff continuity',
+    },
+  ];
+
+  if (queryText.toLowerCase().includes('cockroach') || queryText.toLowerCase().includes('db')) {
+    tasks.unshift({
+      title: 'Check CockroachDB connection pool and replica lag metrics',
+      priority: 'CRITICAL',
+      rationale: 'Query mentions database symptoms',
+    });
+  }
+
+  return tasks.slice(0, 4);
+}
+
+export async function runAgent(queryText: string, incidentId?: string): Promise<AgentResult> {
+  const steps: AgentStep[] = [];
+  const embeddingCount = await getEmbeddingCount();
+
+  steps.push({
+    step: 1,
+    action: 'Load incident corpus',
+    detail: 'Fetching incidents from CockroachDB Rudra database',
+    status: 'done',
+  });
+
+  const incidentRows = await query<{ data: IncidentRecord & { severity?: string; status?: string } }>(
+    'SELECT data FROM incidents ORDER BY updated_at DESC',
+  );
+  const incidents = incidentRows.map((r) => r.data);
+
+  let hits;
+  let mode: AgentResult['mode'] = 'keyword';
+
+  steps.push({
+    step: 2,
+    action: 'Embed query vector',
+    detail: `Using ${getEmbedMode()} embeddings (${embeddingCount} indexed chunks)`,
+    status: 'done',
+  });
+
+  if (embeddingCount > 0) {
+    try {
+      hits = await searchSimilarIncidents(queryText, 5);
+      mode = getEmbedMode() === 'bedrock' ? 'bedrock' : 'local';
+    } catch {
+      hits = keywordSearchFallback(queryText, incidents, 5);
+      mode = 'keyword';
+    }
+  } else {
+    hits = keywordSearchFallback(queryText, incidents, 5);
+    steps.push({
+      step: 2,
+      action: 'Vector index empty',
+      detail: 'Run npm run db:embed to build vector index. Using keyword fallback.',
+      status: 'skipped',
+    });
+    mode = 'keyword';
+  }
+
+  steps.push({
+    step: 3,
+    action: 'Vector similarity search',
+    detail: `Found ${hits.length} similar incident patterns in CockroachDB`,
+    status: 'done',
+  });
+
+  const similarIncidents = hits.map((hit) => {
+    const inc = incidents.find((i) => i.id === hit.incidentId);
+    return {
+      id: hit.incidentId,
+      title: inc?.title ?? hit.incidentId,
+      service: hit.service,
+      summary: inc?.summary ?? hit.content.slice(0, 200),
+      similarityScore: hit.similarityScore,
+      keyTakeaway: inc?.fixesApplied?.[0] ?? hit.content.slice(0, 120),
+      severity: inc?.severity,
+      status: inc?.status,
+    };
+  });
+
+  let activeIncident: Record<string, unknown> | null = null;
+  if (incidentId) {
+    const row = await queryOne<{ data: Record<string, unknown> }>(
+      'SELECT data FROM incidents WHERE id = $1',
+      [incidentId],
+    );
+    activeIncident = row?.data ?? null;
+    steps.push({
+      step: 4,
+      action: 'Load active incident context',
+      detail: `Attached context for ${incidentId}`,
+      status: activeIncident ? 'done' : 'skipped',
+    });
+  }
+
+  const suggestedTasks = buildSuggestedTasks(queryText, similarIncidents);
+  const triage = inferTriage(queryText, similarIncidents);
+
+  let answer: string;
+  if (isBedrockConfigured()) {
+    steps.push({
+      step: steps.length + 1,
+      action: 'Bedrock Nova reasoning',
+      detail: 'Generating agent response with Nova 2 Lite + incident context',
+      status: 'done',
+    });
+    answer = await generateAgentResponse(queryText, {
+      similarIncidents,
+      activeIncident,
+    });
+    mode = 'bedrock';
+  } else {
+    steps.push({
+      step: steps.length + 1,
+      action: 'Local agent synthesis',
+      detail: 'Structured response from vector matches (enable Bedrock for Haiku + Nova)',
+      status: 'done',
+    });
+    answer = buildLocalAgentAnswer(queryText, similarIncidents, activeIncident, mode);
+  }
+
+  return {
+    answer,
+    similarIncidents,
+    steps,
+    suggestedTasks,
+    mode,
+    embeddingCount,
+    triage,
+  };
+}
+
+export async function getAgentStatus() {
+  const embeddingCount = await getEmbeddingCount();
+  const incidentCount = await query<{ n: number }>('SELECT count(*)::int AS n FROM incidents');
+  return {
+    bedrockEnabled: isBedrockConfigured(),
+    embedMode: getEmbedMode(),
+    embeddingCount,
+    incidentCount: incidentCount[0]?.n ?? 0,
+    vectorSearchReady: embeddingCount > 0,
+    agentReady: true,
+  };
+}

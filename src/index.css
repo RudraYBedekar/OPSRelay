@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ops-bg: #F8FAFC;
+  --color-ops-sidebar: #FFFFFF;
+  --color-ops-card: #FFFFFF;
+  --color-ops-cardHover: #F1F5F9;
+  --color-ops-border: #E2E8F0;
+  --color-ops-borderSubtle: #F1F5F9;
+  --color-ops-muted: #94A3B8;
+  --color-ops-text: #0F172A;
+  --color-ops-subtext: #64748B;
+
+  --color-brand: #DC2626;
+  --color-brand-hover: #B91C1C;
+  --color-brand-light: #FEF2F2;
+  --color-cockroach-red: #DC2626;
+  --color-cockroach-redHover: #B91C1C;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-dark: var(--shadow-card);
+  --shadow-glow-red-sm: 0 0 0 3px rgba(220, 38, 38, 0.12);
+
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius-lg: 0.75rem;
+}
+
+body {
+  background-color: var(--color-ops-bg);
+  color: var(--color-ops-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Design system utilities ── */
+.ops-card {
+  @apply rounded-xl border border-ops-border bg-white shadow-card;
+}
+
+.ops-input {
+  @apply w-full rounded-lg border border-ops-border bg-white px-3 py-2 text-sm text-ops-text placeholder:text-ops-muted;
+  @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-red-100;
+}
+
+.ops-btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white;
+  @apply hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 focus-visible:ring-offset-2;
+}
+
+.ops-btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ops-border bg-white px-4 py-2 text-sm font-medium text-ops-text;
+  @apply hover:bg-ops-cardHover transition-colors;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 focus-visible:ring-offset-2;
+}
+
+.ops-label {
+  @apply block text-xs font-medium text-ops-subtext mb-1.5;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #DC2626; }
