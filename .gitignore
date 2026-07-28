@@ -12,17 +12,26 @@ dist
 dist-server
 dist-ssr
 *.local
+
+# Secrets and local env (never commit)
 .env
 .env.local
+.env.production
+*.pem
 
-# MCP config may contain API keys — use .example as template
+# MCP config may contain API keys or cluster IDs — use .example as template
 .cursor/mcp.json
+.agents/mcp.json
+
+# Accidental TypeScript emit under src (keep intentional JS like servers/test-db.js)
+src/**/*.js
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

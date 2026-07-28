@@ -4,6 +4,8 @@ import { generateAgentResponse } from './llmService.js';
 import { getEmbedMode } from './embedService.js';
 import {
   searchSimilarIncidents,
+  searchIncidentsInCorpus,
+  mergeSearchHits,
   keywordSearchFallback,
   getEmbeddingCount,
   type IncidentRecord,
@@ -163,6 +165,8 @@ export async function runAgent(queryText: string, incidentId?: string): Promise<
   );
   const incidents = incidentRows.map((r) => r.data);
 
+  const corpusHits = searchIncidentsInCorpus(queryText, incidents, 8);
+
   let hits;
   let mode: AgentResult['mode'] = 'keyword';
 
@@ -175,27 +179,37 @@ export async function runAgent(queryText: string, incidentId?: string): Promise<
 
   if (embeddingCount > 0) {
     try {
-      hits = await searchSimilarIncidents(queryText, 5);
+      const vectorHits = await searchSimilarIncidents(queryText, 5);
+      hits = mergeSearchHits(corpusHits, vectorHits).slice(0, 5);
       mode = getEmbedMode() === 'bedrock' ? 'bedrock' : 'local';
     } catch {
-      hits = keywordSearchFallback(queryText, incidents, 5);
+      hits = corpusHits.length > 0 ? corpusHits : keywordSearchFallback(queryText, incidents, 5);
       mode = 'keyword';
     }
   } else {
-    hits = keywordSearchFallback(queryText, incidents, 5);
+    hits = corpusHits.length > 0 ? corpusHits : keywordSearchFallback(queryText, incidents, 5);
     steps.push({
       step: 2,
       action: 'Vector index empty',
-      detail: 'Run npm run db:embed to build vector index. Using keyword fallback.',
+      detail: 'Using full incident corpus text search. Run npm run db:embed for vector boost.',
       status: 'skipped',
     });
     mode = 'keyword';
   }
 
+  if (corpusHits.length > 0) {
+    steps.push({
+      step: 3,
+      action: 'Corpus incident search',
+      detail: `Matched ${corpusHits.length} incident(s) by ID, title, or service in database`,
+      status: 'done',
+    });
+  }
+
   steps.push({
-    step: 3,
-    action: 'Vector similarity search',
-    detail: `Found ${hits.length} similar incident patterns in CockroachDB`,
+    step: 4,
+    action: 'Vector + corpus ranking',
+    detail: `Top ${hits.length} incident(s) selected for agent context`,
     status: 'done',
   });
 
@@ -235,16 +249,32 @@ export async function runAgent(queryText: string, incidentId?: string): Promise<
       const withoutDup = similarIncidents.filter((s) => s.id !== queriedIncidentId);
       similarIncidents.length = 0;
       similarIncidents.push(direct, ...withoutDup.slice(0, 4));
+    } else {
+      steps[steps.length - 1] = {
+        ...steps[steps.length - 1],
+        detail: `No incident found for ${queriedIncidentId} in database`,
+        status: 'skipped',
+      };
     }
 
     steps.push({
-      step: 4,
+      step: 5,
       action: 'Direct incident lookup',
       detail: activeIncident
-        ? `Loaded ${queriedIncidentId} from database (ID match in query)`
-        : `No incident found for ${queriedIncidentId}`,
+        ? `Loaded ${queriedIncidentId} from database (ID in query)`
+        : `${queriedIncidentId} not in database — save it via Intake first`,
       status: activeIncident ? 'done' : 'skipped',
     });
+  } else if (similarIncidents.length > 0 && similarIncidents[0].similarityScore >= 40) {
+    activeIncident = incidents.find((i) => i.id === similarIncidents[0].id) as Record<string, unknown> ?? null;
+    if (activeIncident) {
+      steps.push({
+        step: 5,
+        action: 'Best corpus match',
+        detail: `Using ${similarIncidents[0].id} as primary context (${similarIncidents[0].similarityScore}% match)`,
+        status: 'done',
+      });
+    }
   }
 
   const suggestedTasks = buildSuggestedTasks(queryText, similarIncidents);

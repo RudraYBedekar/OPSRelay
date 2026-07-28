@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { query, queryOne } from '../db.js';
-import { isBedrockConfigured } from '../config/bedrock.js';
 import { indexIncident, type IncidentRecord } from '../services/vectorService.js';
 
 export const incidentsRouter = Router();
@@ -42,11 +41,9 @@ incidentsRouter.post('/', async (req, res, next) => {
       [incident.id, JSON.stringify(incident), incident.createdAt ?? new Date().toISOString()],
     );
 
-    if (isBedrockConfigured()) {
-      indexIncident(incident).catch((err) =>
-        console.warn(`Vector index failed for ${incident.id}:`, err.message),
-      );
-    }
+    indexIncident(incident).catch((err) =>
+      console.warn(`Vector index failed for ${incident.id}:`, err.message),
+    );
 
     res.json(incident);
   } catch (err) {

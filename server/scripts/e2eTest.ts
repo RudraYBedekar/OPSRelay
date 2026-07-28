@@ -182,7 +182,7 @@ async function main() {
     fail('Save incident to DB', e instanceof Error ? e.message : 'failed');
   }
 
-  // 6. Agent / Ask AI
+  // 6. Agent / Ask AI — general query
   try {
     const agent = await api<{ answer: string; mode: string; similarIncidents: unknown[] }>('/agent/run', {
       method: 'POST',
@@ -195,6 +195,34 @@ async function main() {
     }
   } catch (e) {
     fail('Ask AI agent', e instanceof Error ? e.message : 'failed');
+  }
+
+  // 6b. Ask AI about newly saved incident by ID and title
+  try {
+    const byId = await api<{ answer: string; similarIncidents: Array<{ id: string; similarityScore: number }> }>('/agent/run', {
+      method: 'POST',
+      body: JSON.stringify({ query: `${testId} check this incident`, saveChat: false }),
+    });
+    const idMatch = byId.similarIncidents?.some((s) => s.id === testId && s.similarityScore >= 90);
+    const mentionsId = byId.answer.includes(testId);
+    if (idMatch && mentionsId) {
+      pass('Ask AI by incident ID', `${testId} found (${byId.similarIncidents[0]?.similarityScore}% match)`);
+    } else {
+      fail('Ask AI by incident ID', `match=${idMatch}, mentions=${mentionsId}, top=${byId.similarIncidents?.[0]?.id}`);
+    }
+
+    const byTitle = await api<{ answer: string; similarIncidents: Array<{ id: string; title: string }> }>('/agent/run', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'Tell me about the E2E Test CRDB Replica Lag incident', saveChat: false }),
+    });
+    const titleMatch = byTitle.similarIncidents?.some((s) => s.id === testId);
+    if (titleMatch) {
+      pass('Ask AI by title', `${testId} matched from title query`);
+    } else {
+      fail('Ask AI by title', `top=${byTitle.similarIncidents?.[0]?.id ?? 'none'}`);
+    }
+  } catch (e) {
+    fail('Ask AI incident lookup', e instanceof Error ? e.message : 'failed');
   }
 
   // 7. Task status update
