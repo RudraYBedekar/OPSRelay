@@ -26,7 +26,7 @@ import type {
   TaskStatus,
 } from './types/incident';
 import { apiService } from './services/apiService';
-import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents } from './utils/dashboardMetrics';
+import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents, buildLiveHandoffSummaries } from './utils/dashboardMetrics';
 
 const PAGE: Record<NavTab, { title: string; description: string }> = {
   dashboard: {
@@ -71,6 +71,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const intakeStep: 1 | 2 | 3 = extractionResult ? 3 : isExtracting ? 2 : 1;
 
@@ -97,6 +98,7 @@ export const App: React.FC = () => {
       setShiftHandoff(h);
       setIncidents(incs);
       setTasks(t);
+      setLastRefreshedAt(new Date());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -114,6 +116,7 @@ export const App: React.FC = () => {
       const incs = await apiService.getIncidents();
       setIncidents(incs);
       setDashboardSeverityFilter('ALL');
+      setLastRefreshedAt(new Date());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to refresh incidents');
     }
@@ -128,6 +131,14 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => { loadDashboardData(); }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+    const id = window.setInterval(() => {
+      void loadDashboardData({ silent: true });
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [activeTab]);
 
   const handleAcknowledgeHandoff = async () => {
     try {
@@ -195,7 +206,9 @@ export const App: React.FC = () => {
       const updated = await apiService.updateIncidentStatus(id, status);
       setIncidents((prev) => prev.map((i) => (i.id === id ? updated : i)));
       if (selectedIncident?.id === id) setSelectedIncident(updated);
+      await refreshIncidents();
       await refreshTasks();
+      setLastRefreshedAt(new Date());
       toast(`Status updated to ${status}`, 'success');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Update failed');
@@ -222,15 +235,21 @@ export const App: React.FC = () => {
   const goTab = (tab: NavTab) => {
     setActiveTab(tab);
     setSelectedIncident(null);
+    if (tab === 'dashboard') {
+      void loadDashboardData({ silent: true });
+    }
   };
 
-  const investigatingCount = incidents.filter((i) => i.status === 'INVESTIGATING').length;
   const incomingLead = shiftHandoff ? firstName(shiftHandoff.incomingLead) : 'Yash';
   const displayName = user?.name ?? incomingLead;
 
   const liveMetrics = metrics ? deriveLiveMetrics(incidents, tasks, metrics) : null;
   const openIncidentCount = countOpenIncidents(incidents);
   const resolvedIncidentCount = countResolvedIncidents(incidents);
+  const liveHandoffSummaries = buildLiveHandoffSummaries(incidents);
+  const liveUpdatedLabel = lastRefreshedAt
+    ? lastRefreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : undefined;
 
   const handleLogout = () => {
     logout();
@@ -296,9 +315,11 @@ export const App: React.FC = () => {
               {shiftHandoff && liveMetrics && (
                 <HandoffCard
                   handoff={shiftHandoff}
-                  investigatingCount={investigatingCount}
+                  liveSummaries={liveHandoffSummaries}
+                  openIncidentCount={openIncidentCount}
                   activeSevCount={liveMetrics.activeSev0Sev1}
                   openTasksCount={liveMetrics.openTasksCount}
+                  lastUpdated={liveUpdatedLabel}
                   onAcknowledge={handleAcknowledgeHandoff}
                 />
               )}
@@ -308,6 +329,7 @@ export const App: React.FC = () => {
                   openIncidentCount={openIncidentCount}
                   resolvedIncidentCount={resolvedIncidentCount}
                   onCriticalClick={() => setDashboardSeverityFilter('SEV-1')}
+                  onOpenClick={() => setDashboardSeverityFilter('ALL')}
                   onTasksClick={() => goTab('tasks')}
                 />
               )}

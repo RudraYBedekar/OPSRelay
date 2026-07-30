@@ -7,9 +7,19 @@ function severityToPriority(severity: Severity): TaskPriority {
   return 'LOW';
 }
 
+export function defaultTaskId(incidentId: string): string {
+  return `tsk-${incidentId}-triage`;
+}
+
+export function parseDefaultTaskIncidentId(taskId: string): string | null {
+  if (!taskId.startsWith('tsk-') || !taskId.endsWith('-triage')) return null;
+  const incidentId = taskId.slice(4, -7);
+  return incidentId.length > 0 ? incidentId : null;
+}
+
 export function buildDefaultTask(incident: Pick<Incident, 'id' | 'title' | 'severity' | 'leadSRE' | 'createdAt'>): ActionItemTask {
   return {
-    id: `tsk-${incident.id}-triage`,
+    id: defaultTaskId(incident.id),
     incidentId: incident.id,
     incidentTitle: incident.title,
     title: `Triage and investigate: ${incident.title}`,

@@ -44,3 +44,27 @@ export function countOpenIncidents(incidents: Incident[]): number {
 export function countResolvedIncidents(incidents: Incident[]): number {
   return incidents.filter((i) => i.status === 'RESOLVED').length;
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  OPEN: 'Open',
+  INVESTIGATING: 'Investigating',
+  MITIGATED: 'Mitigated',
+  RESOLVED: 'Resolved',
+};
+
+/** Live handoff bullet list from open incidents in the database. */
+export function buildLiveHandoffSummaries(incidents: Incident[], limit = 4): string[] {
+  const sevOrder: Record<string, number> = { 'SEV-0': 0, 'SEV-1': 1, 'SEV-2': 2, 'SEV-3': 3 };
+  return incidents
+    .filter((i) => i.status !== 'RESOLVED')
+    .sort((a, b) => {
+      const sev = (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9);
+      if (sev !== 0) return sev;
+      return new Date(b.updatedAt ?? b.createdAt).getTime() - new Date(a.updatedAt ?? a.createdAt).getTime();
+    })
+    .slice(0, limit)
+    .map(
+      (i) =>
+        `${i.severity} ${STATUS_LABEL[i.status] ?? i.status}: ${i.title}${i.service ? ` — ${i.service}` : ''}`,
+    );
+}

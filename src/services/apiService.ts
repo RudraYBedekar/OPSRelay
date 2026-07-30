@@ -17,6 +17,7 @@ import {
 } from '../data/mockData';
 import { crdbClient } from './crdbClient';
 import { buildExecutiveSummary } from '../utils/summaryFormat';
+import { buildDefaultTask, parseDefaultTaskIncidentId } from '../utils/incidentTasks';
 
 const USE_CRDB = import.meta.env.VITE_USE_CRDB === 'true';
 
@@ -276,6 +277,20 @@ class ApiService {
         updatedTask = inc.tasks[taskIdx];
         await this.saveIncident(inc);
         break;
+      }
+    }
+
+    if (!updatedTask) {
+      const incidentId = parseDefaultTaskIncidentId(taskId);
+      if (incidentId) {
+        const inc = incidents.find((i) => i.id === incidentId);
+        if (inc) {
+          const defaultTask = buildDefaultTask(inc);
+          defaultTask.status = status;
+          inc.tasks = [defaultTask];
+          await this.saveIncident(inc);
+          updatedTask = defaultTask;
+        }
       }
     }
 

@@ -6,17 +6,21 @@ import { firstName } from '../../utils/avatar';
 
 interface HandoffCardProps {
   handoff: ShiftHandoff;
-  investigatingCount: number;
+  liveSummaries: string[];
+  openIncidentCount: number;
   activeSevCount: number;
   openTasksCount: number;
+  lastUpdated?: string;
   onAcknowledge: () => void;
 }
 
 export const HandoffCard: React.FC<HandoffCardProps> = ({
   handoff,
-  investigatingCount,
+  liveSummaries,
+  openIncidentCount,
   activeSevCount,
   openTasksCount,
+  lastUpdated,
   onAcknowledge,
 }) => {
   const acked = handoff.handshakeStatus === 'ACKNOWLEDGED';
@@ -26,7 +30,12 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
       <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex-1 space-y-4 min-w-0">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ops-muted">Shift handoff</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-ops-muted">Shift handoff</p>
+              {lastUpdated && (
+                <p className="text-[10px] text-ops-muted">Live · {lastUpdated}</p>
+              )}
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <UserAvatar name={handoff.outgoingLead} size="lg" />
@@ -47,12 +56,16 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
           </div>
 
           <ul className="space-y-2">
-            {handoff.keySummaries.slice(0, 4).map((s, i) => (
-              <li key={i} className="text-sm text-ops-subtext leading-snug break-words">
-                <span className="mr-2 text-ops-muted">•</span>
-                {s}
-              </li>
-            ))}
+            {liveSummaries.length === 0 ? (
+              <li className="text-sm text-ops-muted">No open incidents — queue is clear.</li>
+            ) : (
+              liveSummaries.map((s, i) => (
+                <li key={i} className="text-sm text-ops-subtext leading-snug break-words">
+                  <span className="mr-2 text-ops-muted">•</span>
+                  {s}
+                </li>
+              ))
+            )}
           </ul>
         </div>
 
@@ -63,8 +76,8 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
               <p className="text-[10px] font-medium uppercase tracking-wide text-red-700/80 mt-0.5">Critical</p>
             </div>
             <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center min-w-[4.5rem]">
-              <p className="text-xl font-bold text-amber-900 tabular-nums">{investigatingCount}</p>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-amber-800/80 mt-0.5">Active</p>
+              <p className="text-xl font-bold text-amber-900 tabular-nums">{openIncidentCount}</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-amber-800/80 mt-0.5">Open</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center min-w-[4.5rem]">
               <p className="text-xl font-bold text-ops-text tabular-nums">{openTasksCount}</p>

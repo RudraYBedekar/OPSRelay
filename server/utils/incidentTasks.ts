@@ -34,7 +34,7 @@ function severityToPriority(severity: Severity): TaskPriority {
 export function buildDefaultTask(incident: IncidentWithTasks): IncidentTask {
   const createdAt = incident.createdAt ?? new Date().toISOString();
   return {
-    id: `tsk-${incident.id}-triage`,
+    id: defaultTaskId(incident.id),
     incidentId: incident.id,
     incidentTitle: incident.title,
     title: `Triage and investigate: ${incident.title}`,
@@ -44,6 +44,17 @@ export function buildDefaultTask(incident: IncidentWithTasks): IncidentTask {
     severity: incident.severity,
     createdAt,
   };
+}
+
+export function defaultTaskId(incidentId: string): string {
+  return `tsk-${incidentId}-triage`;
+}
+
+/** Parse incident id from a synthetic default task id (`tsk-INC-123-triage`). */
+export function parseDefaultTaskIncidentId(taskId: string): string | null {
+  if (!taskId.startsWith('tsk-') || !taskId.endsWith('-triage')) return null;
+  const incidentId = taskId.slice(4, -7);
+  return incidentId.length > 0 ? incidentId : null;
 }
 
 /** Ensure every open incident has at least one trackable task for the task board. */
