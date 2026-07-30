@@ -17,6 +17,8 @@ interface AppShellProps {
   dbConnected: boolean | null;
   usingCrdb: boolean;
   userName?: string;
+  userId?: string;
+  memberId?: string;
   userRole?: string;
   onLogout?: () => void;
   children: React.ReactNode;
@@ -36,6 +38,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   dbConnected,
   usingCrdb,
   userName,
+  userId,
+  memberId,
   userRole,
   onLogout,
   children,
@@ -59,6 +63,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         dbConnected={dbConnected}
         usingCrdb={usingCrdb}
         userName={userName}
+        userId={userId}
+        memberId={memberId}
         userRole={userRole}
         onLogout={onLogout}
       />

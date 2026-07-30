@@ -10,9 +10,11 @@ import {
   validatePassword,
   validateUserId,
 } from '../utils/passwordPolicy.js';
+import { generateUniqueMemberId } from '../utils/memberId.js';
 
 export interface AuthUser {
   id: string;
+  memberId: string;
   userId: string;
   email: string;
   name: string;
@@ -21,6 +23,7 @@ export interface AuthUser {
 
 interface UserRow {
   id: string;
+  member_id: string;
   user_id: string;
   email: string;
   name: string;
@@ -47,6 +50,7 @@ export function signToken(user: AuthUser): string {
   return jwt.sign(
     {
       sub: user.id,
+      memberId: user.memberId,
       userId: user.userId,
       email: user.email,
       name: user.name,
@@ -63,6 +67,7 @@ export function verifyToken(token: string): AuthUser | null {
     if (!payload.sub || typeof payload.email !== 'string') return null;
     return {
       id: String(payload.sub),
+      memberId: typeof payload.memberId === 'string' ? payload.memberId : String(payload.sub),
       userId: typeof payload.userId === 'string' ? payload.userId : String(payload.email).split('@')[0],
       email: payload.email,
       name: typeof payload.name === 'string' ? payload.name : payload.email.split('@')[0],
@@ -75,14 +80,14 @@ export function verifyToken(token: string): AuthUser | null {
 
 export async function findUserByEmail(email: string): Promise<UserRow | null> {
   return secureQueryOne<UserRow>(
-    'SELECT id, user_id, email, name, role, password_hash FROM users WHERE lower(email) = lower($1)',
+    'SELECT id, member_id, user_id, email, name, role, password_hash FROM users WHERE lower(email) = lower($1)',
     [email.trim()],
   );
 }
 
 export async function findUserByUserId(userId: string): Promise<UserRow | null> {
   return secureQueryOne<UserRow>(
-    'SELECT id, user_id, email, name, role, password_hash FROM users WHERE lower(user_id) = lower($1)',
+    'SELECT id, member_id, user_id, email, name, role, password_hash FROM users WHERE lower(user_id) = lower($1)',
     [userId.trim()],
   );
 }
@@ -94,17 +99,18 @@ export async function findUserByIdentifier(identifier: string): Promise<UserRow 
 }
 
 export async function findUserById(id: string): Promise<AuthUser | null> {
-  const row = await secureQueryOne<{ id: string; user_id: string; email: string; name: string; role: string }>(
-    'SELECT id, user_id, email, name, role FROM users WHERE id = $1',
+  const row = await secureQueryOne<{ id: string; member_id: string; user_id: string; email: string; name: string; role: string }>(
+    'SELECT id, member_id, user_id, email, name, role FROM users WHERE id = $1',
     [id],
   );
   if (!row) return null;
   return rowToPublicUser(row);
 }
 
-function rowToPublicUser(row: { id: string; user_id: string; email: string; name: string; role: string }): AuthUser {
+function rowToPublicUser(row: { id: string; member_id: string; user_id: string; email: string; name: string; role: string }): AuthUser {
   return {
     id: row.id,
+    memberId: row.member_id,
     userId: row.user_id,
     email: row.email,
     name: row.name,
@@ -113,7 +119,14 @@ function rowToPublicUser(row: { id: string; user_id: string; email: string; name
 }
 
 export function toPublicUser(user: AuthUser): AuthUser {
-  return { id: user.id, userId: user.userId, email: user.email, name: user.name, role: user.role };
+  return {
+    id: user.id,
+    memberId: user.memberId,
+    userId: user.userId,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  };
 }
 
 export interface RegisterInput {
@@ -145,17 +158,21 @@ export async function registerUser(input: RegisterInput): Promise<AuthUser> {
     findUserByUserId(userId),
   ]);
 
-  if (existingEmail || existingUserId) {
-    throw new Error('An account with this email or user ID already exists');
+  if (existingUserId) {
+    throw new Error('This user ID is already taken. Please choose a different one.');
+  }
+  if (existingEmail) {
+    throw new Error('An account with this email already exists.');
   }
 
   const passwordHash = await hashPassword(input.password);
+  const memberId = await generateUniqueMemberId();
 
-  const row = await secureQueryOne<{ id: string; user_id: string; email: string; name: string; role: string }>(
-    `INSERT INTO users (user_id, email, password_hash, name, role)
-     VALUES ($1, $2, $3, $4, 'operator')
-     RETURNING id, user_id, email, name, role`,
-    [userId, email, passwordHash, name],
+  const row = await secureQueryOne<{ id: string; member_id: string; user_id: string; email: string; name: string; role: string }>(
+    `INSERT INTO users (member_id, user_id, email, password_hash, name, role)
+     VALUES ($1, $2, $3, $4, $5, 'operator')
+     RETURNING id, member_id, user_id, email, name, role`,
+    [memberId, userId, email, passwordHash, name],
   );
 
   if (!row) throw new Error('Registration failed');

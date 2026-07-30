@@ -77,7 +77,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
         <div className="mb-5 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
-            Passwords are bcrypt-hashed with server pepper. Plain-text passwords are never stored or returned by the API.
+            A unique member ID (e.g. MEM-A3F9B2C1) is assigned automatically. Your user ID must not match an existing account.
           </span>
         </div>
 
@@ -94,7 +94,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
               className="ops-input min-h-[44px]"
               placeholder="e.g. rudra.ops"
             />
-            <p className="mt-1 text-[11px] text-ops-muted">Used to sign in — 3–32 chars, letters/numbers/._-</p>
+            <p className="mt-1 text-[11px] text-ops-muted">Must be unique — 3–32 chars, letters/numbers/._-</p>
           </div>
 
           <div>

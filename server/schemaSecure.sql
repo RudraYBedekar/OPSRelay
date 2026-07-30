@@ -3,6 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id            STRING PRIMARY KEY DEFAULT gen_random_uuid()::STRING,
+  member_id     STRING UNIQUE NOT NULL,
   user_id       STRING UNIQUE NOT NULL,
   email         STRING UNIQUE NOT NULL,
   password_hash STRING NOT NULL,
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_secure_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_secure_users_user_id ON users (user_id);
+CREATE INDEX IF NOT EXISTS idx_secure_users_member_id ON users (member_id);
 
 -- Audit trail — no passwords, no raw emails in log rows
 CREATE TABLE IF NOT EXISTS auth_audit_log (

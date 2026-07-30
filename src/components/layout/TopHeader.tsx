@@ -20,6 +20,10 @@ interface TopHeaderProps {
 
   userName?: string;
 
+  userId?: string;
+
+  memberId?: string;
+
   userRole?: string;
 
   onLogout?: () => void;
@@ -41,6 +45,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   usingCrdb,
 
   userName = 'Yash',
+
+  userId,
+
+  memberId,
 
   userRole,
 
@@ -206,9 +214,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
                   <p className="text-sm font-medium text-ops-text truncate">{userName}</p>
 
+                  {memberId && (
+                    <p className="text-[11px] font-mono text-brand mt-0.5">{memberId}</p>
+                  )}
+
+                  {userId && (
+                    <p className="text-[11px] text-ops-muted">Login ID: {userId}</p>
+                  )}
+
                   {userRole && (
 
-                    <p className="text-[11px] text-ops-muted capitalize">{userRole}</p>
+                    <p className="text-[11px] text-ops-muted capitalize mt-0.5">{userRole}</p>
 
                   )}
 

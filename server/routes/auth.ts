@@ -12,6 +12,7 @@ import {
   touchLastLogin,
   verifyPassword,
 } from '../services/authService.js';
+import { ensureUserMemberId } from '../services/authMigration.js';
 
 export const authRouter = Router();
 
@@ -58,6 +59,16 @@ authRouter.post('/register', registerRateLimit, async (req, res, next) => {
       message: 'Account created securely',
     });
   } catch (err) {
+    if (err instanceof Error && err.message.includes('already taken')) {
+      await logAuthEvent('register_failed', req, null, { reason: 'duplicate_user_id' });
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err instanceof Error && err.message.includes('email already exists')) {
+      await logAuthEvent('register_failed', req, null, { reason: 'duplicate_email' });
+      res.status(409).json({ error: err.message });
+      return;
+    }
     if (err instanceof Error && err.message.includes('already exists')) {
       await logAuthEvent('register_failed', req, null, { reason: 'duplicate' });
       res.status(409).json({ error: err.message });
@@ -121,8 +132,11 @@ authRouter.post('/login', loginRateLimit, async (req, res, next) => {
     await touchLastLogin(userRow.id);
     await logAuthEvent('login_success', req, userRow.id);
 
+    const memberId = userRow.member_id || await ensureUserMemberId(userRow.id);
+
     const user = toPublicUser({
       id: userRow.id,
+      memberId,
       userId: userRow.user_id,
       email: userRow.email,
       name: userRow.name,
@@ -136,8 +150,14 @@ authRouter.post('/login', loginRateLimit, async (req, res, next) => {
   }
 });
 
-authRouter.get('/me', requireAuth, (req, res) => {
-  res.json({ user: req.user! });
+authRouter.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const { findUserById } = await import('../services/authService.js');
+    const fresh = await findUserById(req.user!.id);
+    res.json({ user: fresh ?? req.user! });
+  } catch (err) {
+    next(err);
+  }
 });
 
 authRouter.post('/logout', requireAuth, (_req, res) => {

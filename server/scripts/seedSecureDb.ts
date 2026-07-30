@@ -41,16 +41,16 @@ async function main() {
     const defaultPassword = getSeedDefaultPassword();
 
     const seedUsers = [
-      { userId: 'rudra', email: 'rudra@opsrelay.io', name: 'Rudra', role: 'admin' },
-      { userId: 'yash', email: 'yash@opsrelay.io', name: 'Yash', role: 'operator' },
+      { memberId: 'MEM-SEED0001', userId: 'rudra', email: 'rudra@opsrelay.io', name: 'Rudra', role: 'admin' },
+      { memberId: 'MEM-SEED0002', userId: 'yash', email: 'yash@opsrelay.io', name: 'Yash', role: 'operator' },
     ];
 
     for (const u of seedUsers) {
       const passwordHash = await hashPassword(defaultPassword);
       await client.query(
-        `INSERT INTO users (user_id, email, password_hash, name, role)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [u.userId, u.email, passwordHash, u.name, u.role],
+        `INSERT INTO users (member_id, user_id, email, password_hash, name, role)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [u.memberId, u.userId, u.email, passwordHash, u.name, u.role],
       );
     }
 

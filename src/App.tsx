@@ -264,6 +264,8 @@ export const App: React.FC = () => {
       dbConnected={dbConnected}
       usingCrdb={apiService.isUsingCrdb()}
       userName={displayName}
+      userId={user?.userId}
+      memberId={user?.memberId}
       userRole={user?.role}
       onLogout={requiresAuth ? handleLogout : undefined}
     >

@@ -83,7 +83,6 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   const [messages, setMessages] = useState<LiveMessage[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [aiOn, setAiOn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,7 +100,6 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   };
 
   useEffect(() => {
-    apiService.getAgentStatus().then((s) => setAiOn(s.bedrockEnabled)).catch(() => setAiOn(false));
     loadHistory();
   }, []);
 
@@ -193,11 +191,6 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-brand" />
               <span className="text-sm font-semibold text-ops-text">OpsRelay AI</span>
-              {aiOn && (
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                  Bedrock
-                </span>
-              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
@@ -269,7 +262,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                       <div className="space-y-4">
                         {msg.mode && (
                           <p className="text-[11px] font-medium text-ops-muted uppercase tracking-wide">
-                            OpsRelay · {msg.mode}
+                            OpsRelay AI
                           </p>
                         )}
                         <ChatMarkdown content={msg.content} />

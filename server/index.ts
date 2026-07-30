@@ -15,6 +15,7 @@ import { sampleLogsRouter } from './routes/sampleLogs.js';
 import { authRouter } from './routes/auth.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
 import { isAuthEnabled } from './config/auth.js';
+import { migrateSecureAuthSchema } from './services/authMigration.js';
 import { getEmbeddingCount } from './services/vectorService.js';
 import { testBedrockConnection } from './services/llmService.js';
 import { securityHeaders } from './middleware/security.js';
@@ -105,9 +106,18 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`OpsRelay API listening on http://localhost:${PORT}`);
   console.log(`Auth: ${isAuthEnabled() ? 'ENABLED (JWT)' : 'disabled'}`);
   console.log(`Bedrock: ${isBedrockConfigured() ? 'ENABLED' : 'disabled (fallback mode)'}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
+
+  if (isAuthEnabled()) {
+    try {
+      await migrateSecureAuthSchema();
+      console.log('SecureData auth schema: member_id ready');
+    } catch (err) {
+      console.warn('SecureData auth migration skipped:', err instanceof Error ? err.message : err);
+    }
+  }
 });
