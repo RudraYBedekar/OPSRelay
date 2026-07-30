@@ -76,7 +76,7 @@ export async function getGrantedOwnerMemberIds(viewerMemberId: string): Promise<
 }
 
 export function canViewIncident(
-  incident: { ownerMemberId?: string },
+  incident: { ownerMemberId?: string; sharedWithMemberIds?: string[] },
   viewer: AuthUser | undefined,
   grantedOwnerIds: Set<string>,
 ): boolean {
@@ -85,7 +85,48 @@ export function canViewIncident(
   const owner = incident.ownerMemberId;
   if (!owner) return true;
   if (owner === viewer.memberId) return true;
-  return grantedOwnerIds.has(owner);
+  if (grantedOwnerIds.has(owner)) return true;
+  if (incident.sharedWithMemberIds?.includes(viewer.memberId)) return true;
+  return false;
+}
+
+export function normalizeMemberId(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+export function isValidMemberIdFormat(memberId: string): boolean {
+  return /^MEM-[A-Z0-9]{8}$/.test(normalizeMemberId(memberId));
+}
+
+export async function memberIdExists(memberId: string): Promise<boolean> {
+  const row = await secureQueryOne<{ member_id: string }>(
+    'SELECT member_id FROM users WHERE member_id = $1',
+    [normalizeMemberId(memberId)],
+  );
+  return Boolean(row);
+}
+
+/** Validate and normalize share targets when sending an incident to other members. */
+export async function normalizeShareTargets(
+  ownerMemberId: string,
+  targets: string[] | undefined,
+): Promise<string[]> {
+  if (!targets?.length) return [];
+
+  const normalized = [...new Set(targets.map(normalizeMemberId).filter(Boolean))].filter(
+    (id) => id !== ownerMemberId,
+  );
+
+  for (const id of normalized) {
+    if (!isValidMemberIdFormat(id)) {
+      throw new Error(`Invalid member ID: ${id}`);
+    }
+    if (!(await memberIdExists(id))) {
+      throw new Error(`No user found with member ID ${id}`);
+    }
+  }
+
+  return normalized;
 }
 
 export async function filterIncidentsForUser<T extends { ownerMemberId?: string }>(

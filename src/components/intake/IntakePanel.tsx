@@ -13,12 +13,13 @@ interface IntakePanelProps {
   onExtract: (notes: string) => void;
   isExtracting: boolean;
   step: 1 | 2 | 3;
-  onQuickSave: (incident: Incident) => Promise<void>;
+  onQuickSave: (incident: Incident, shareWithMemberId?: string) => Promise<void>;
   onSaveSampleLog?: (log: { title: string; content: string; category?: string }) => Promise<void>;
   defaultOwner?: string;
+  senderMemberId?: string;
   extractionResult: ExtractionResult | null;
   lastRawNotes: string;
-  onSaveExtracted: (incident: Incident) => void;
+  onSaveExtracted: (incident: Incident, shareWithMemberId?: string) => void | Promise<void>;
   onResetExtraction: () => void;
 }
 
@@ -31,6 +32,7 @@ export const IntakePanel: React.FC<IntakePanelProps> = ({
   onQuickSave,
   onSaveSampleLog,
   defaultOwner,
+  senderMemberId,
   extractionResult,
   lastRawNotes,
   onSaveExtracted,
@@ -63,6 +65,7 @@ export const IntakePanel: React.FC<IntakePanelProps> = ({
         onSave={onQuickSave}
         onSaveSampleLog={onSaveSampleLog}
         defaultOwner={defaultOwner}
+        senderMemberId={senderMemberId}
       />
     ) : (
       <>
@@ -73,6 +76,7 @@ export const IntakePanel: React.FC<IntakePanelProps> = ({
             rawNotes={lastRawNotes}
             onSave={onSaveExtracted}
             onReset={onResetExtraction}
+            senderMemberId={senderMemberId}
           />
         )}
       </>

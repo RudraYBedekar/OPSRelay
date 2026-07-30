@@ -61,6 +61,7 @@ export interface Incident {
   shiftId: string;
   ownerMemberId?: string;
   ownerName?: string;
+  sharedWithMemberIds?: string[];
   timeline: TimelineEvent[];
   decisions: Decision[];
   fixesApplied: string[];

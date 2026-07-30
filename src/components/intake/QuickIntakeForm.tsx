@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import type { Incident, Severity } from '../../types/incident';
 import { buildQuickIncident } from '../../utils/quickIncident';
+import { ShareIncidentDialog } from './ShareIncidentDialog';
 import { Save, Loader2, Zap } from 'lucide-react';
 
 interface QuickIntakeFormProps {
-  onSave: (incident: Incident) => Promise<void>;
+  onSave: (incident: Incident, shareWithMemberId?: string) => Promise<void>;
   onSaveSampleLog?: (log: { title: string; content: string; category?: string }) => Promise<void>;
   defaultOwner?: string;
+  senderMemberId?: string;
 }
 
 export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
   onSave,
   onSaveSampleLog,
   defaultOwner = 'Yash',
+  senderMemberId,
 }) => {
   const [title, setTitle] = useState('');
   const [service, setService] = useState('');
@@ -22,24 +25,33 @@ export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
   const [alsoSaveLog, setAlsoSaveLog] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [pendingIncident, setPendingIncident] = useState<Incident | null>(null);
 
   const canSave = title.trim().length > 0 && notes.trim().length > 0 && !saving;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
+
+    const incident = buildQuickIncident({
+      title,
+      notes,
+      service: service || undefined,
+      severity,
+      leadSRE: owner,
+    });
+    setPendingIncident(incident);
+    setShareOpen(true);
+  };
+
+  const finalizeSave = async (shareWithMemberId?: string) => {
+    if (!pendingIncident) return;
 
     setSaving(true);
     setSavedId(null);
     try {
-      const incident = buildQuickIncident({
-        title,
-        notes,
-        service: service || undefined,
-        severity,
-        leadSRE: owner,
-      });
-      await onSave(incident);
+      await onSave(pendingIncident, shareWithMemberId);
 
       if (alsoSaveLog && onSaveSampleLog) {
         await onSaveSampleLog({
@@ -49,11 +61,13 @@ export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
         });
       }
 
-      setSavedId(incident.id);
+      setSavedId(pendingIncident.id);
       setTitle('');
       setService('');
       setNotes('');
       setSeverity('SEV-2');
+      setShareOpen(false);
+      setPendingIncident(null);
     } finally {
       setSaving(false);
     }
@@ -163,6 +177,19 @@ export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
           </button>
         </div>
       </form>
+
+      <ShareIncidentDialog
+        open={shareOpen}
+        incidentTitle={pendingIncident?.title ?? title}
+        senderMemberId={senderMemberId}
+        loading={saving}
+        onClose={() => {
+          if (saving) return;
+          setShareOpen(false);
+          setPendingIncident(null);
+        }}
+        onConfirm={(shareWithMemberId) => void finalizeSave(shareWithMemberId)}
+      />
     </div>
   );
 };

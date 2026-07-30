@@ -6,6 +6,7 @@ import {
   canViewIncident,
   filterIncidentsForUser,
   getGrantedOwnerMemberIds,
+  normalizeShareTargets,
 } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
 
@@ -66,6 +67,21 @@ incidentsRouter.post('/', async (req, res, next) => {
       incident.ownerMemberId = req.user.memberId;
       incident.ownerName = req.user.name;
     }
+
+    const body = req.body as { shareWithMemberId?: string };
+    const shareTargets = [
+      ...(incident.sharedWithMemberIds ?? []),
+      ...(body.shareWithMemberId ? [body.shareWithMemberId] : []),
+    ];
+    if (existing?.data?.sharedWithMemberIds) {
+      shareTargets.push(...(existing.data.sharedWithMemberIds as string[]));
+    }
+    if (isAuthEnabled() && req.user && shareTargets.length > 0) {
+      incident.sharedWithMemberIds = await normalizeShareTargets(req.user.memberId, shareTargets);
+    } else if (shareTargets.length > 0) {
+      incident.sharedWithMemberIds = [...new Set(shareTargets.map((id) => id.trim().toUpperCase()))];
+    }
+
     await query(
       `INSERT INTO incidents (id, data, created_at, updated_at)
        VALUES ($1, $2::jsonb, $3::timestamptz, now())
@@ -79,6 +95,13 @@ incidentsRouter.post('/', async (req, res, next) => {
 
     res.json(incident);
   } catch (err) {
+    if (err instanceof Error && (
+      err.message.includes('Invalid member ID') ||
+      err.message.includes('No user found')
+    )) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     next(err);
   }
 });

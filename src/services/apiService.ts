@@ -120,20 +120,26 @@ class ApiService {
   }
 
   // Save or update an incident
-  public async saveIncident(incident: Incident): Promise<Incident> {
+  public async saveIncident(incident: Incident, shareWithMemberId?: string): Promise<Incident> {
     await this.checkError();
-    if (USE_CRDB) return crdbClient.saveIncident(incident);
+    if (USE_CRDB) return crdbClient.saveIncident(incident, shareWithMemberId);
+    const toSave = shareWithMemberId
+      ? {
+          ...incident,
+          sharedWithMemberIds: [...new Set([...(incident.sharedWithMemberIds ?? []), shareWithMemberId.toUpperCase()])],
+        }
+      : incident;
     const incidents = await this.getIncidents();
     const existingIdx = incidents.findIndex(i => i.id === incident.id);
 
     if (existingIdx >= 0) {
-      incidents[existingIdx] = incident;
+      incidents[existingIdx] = toSave;
     } else {
-      incidents.unshift(incident);
+      incidents.unshift(toSave);
     }
 
     localStorage.setItem(STORAGE_KEYS.INCIDENTS, JSON.stringify(incidents));
-    return incident;
+    return toSave;
   }
 
   // Update incident status

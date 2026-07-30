@@ -59,10 +59,10 @@ export const crdbClient = {
     request<import('../types/incident').ShiftHandoff>('/handoff/acknowledge', { method: 'POST' }),
   getIncidents: () => request<import('../types/incident').Incident[]>('/incidents'),
   getIncidentById: (id: string) => request<import('../types/incident').Incident>(`/incidents/${id}`),
-  saveIncident: (incident: import('../types/incident').Incident) =>
+  saveIncident: (incident: import('../types/incident').Incident, shareWithMemberId?: string) =>
     request<import('../types/incident').Incident>('/incidents', {
       method: 'POST',
-      body: JSON.stringify(incident),
+      body: JSON.stringify({ ...incident, shareWithMemberId }),
     }),
   updateIncidentStatus: (id: string, status: import('../types/incident').IncidentStatus) =>
     request<import('../types/incident').Incident>(`/incidents/${id}/status`, {

@@ -170,28 +170,39 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSaveExtractedIncident = async (newIncident: Incident) => {
+  const handleSaveExtractedIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
     try {
-      const saved = await apiService.saveIncident(newIncident);
+      const saved = await apiService.saveIncident(newIncident, shareWithMemberId);
       await refreshIncidents(saved);
       await refreshTasks();
       await loadDashboardData({ silent: true });
       setSelectedIncident(saved);
       setActiveTab('dashboard');
-      toast(`Incident ${saved.id} saved`, 'success');
+      toast(
+        shareWithMemberId
+          ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
+          : `Incident ${saved.id} saved`,
+        'success',
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
+      throw err;
     }
   };
 
-  const handleQuickSaveIncident = async (newIncident: Incident) => {
+  const handleQuickSaveIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
     try {
-      const saved = await apiService.saveIncident(newIncident);
+      const saved = await apiService.saveIncident(newIncident, shareWithMemberId);
       await refreshIncidents(saved);
       await refreshTasks();
       await loadDashboardData({ silent: true });
-      toast(`Incident ${saved.id} saved — check Tasks tab`, 'success');
+      toast(
+        shareWithMemberId
+          ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
+          : `Incident ${saved.id} saved — check Tasks tab`,
+        'success',
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
@@ -367,6 +378,7 @@ export const App: React.FC = () => {
               onQuickSave={handleQuickSaveIncident}
               onSaveSampleLog={handleSaveSampleLog}
               defaultOwner={displayName}
+              senderMemberId={user?.memberId}
               extractionResult={extractionResult}
               lastRawNotes={lastRawNotes}
               onSaveExtracted={handleSaveExtractedIncident}

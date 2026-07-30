@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import type { ExtractionResult, Incident, Severity } from '../../types/incident';
 import { withDefaultTasks } from '../../utils/incidentTasks';
+import { ShareIncidentDialog } from './ShareIncidentDialog';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { CheckCircle2, ChevronDown, ChevronUp, ListTodo, RotateCcw, Save, Clock } from 'lucide-react';
 
 interface ExtractionResultViewProps {
   result: ExtractionResult;
   rawNotes: string;
-  onSave: (newIncident: Incident) => void;
+  onSave: (newIncident: Incident, shareWithMemberId?: string) => void | Promise<void>;
   onReset: () => void;
+  senderMemberId?: string;
 }
 
 export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
@@ -16,8 +18,12 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
   rawNotes,
   onSave,
   onReset,
+  senderMemberId,
 }) => {
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [pendingIncident, setPendingIncident] = useState<Incident | null>(null);
   const [showRaw, setShowRaw] = useState(false);
   const [title, setTitle] = useState(`${result.service} — ${result.component}`);
   const [summary, setSummary] = useState(result.summary);
@@ -25,9 +31,9 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
   const [service, setService] = useState(result.service);
   const [component, setComponent] = useState(result.component);
 
-  const handleSave = () => {
+  const buildIncident = (): Incident => {
     const id = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
-    onSave(withDefaultTasks({
+    return withDefaultTasks({
       id,
       title,
       service,
@@ -45,8 +51,25 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
       fixesApplied: result.suggestedFixes,
       tasks: result.tasks.map((t, i) => ({ ...t, id: `tsk-${i}`, incidentId: id, incidentTitle: title })),
       similarIncidents: [],
-    }));
-    setSaved(true);
+    });
+  };
+
+  const handleSave = () => {
+    setPendingIncident(buildIncident());
+    setShareOpen(true);
+  };
+
+  const finalizeSave = async (shareWithMemberId?: string) => {
+    if (!pendingIncident) return;
+    setSaving(true);
+    try {
+      await onSave(pendingIncident, shareWithMemberId);
+      setSaved(true);
+      setShareOpen(false);
+      setPendingIncident(null);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -62,7 +85,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
               <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Start over
             </button>
             {!saved ? (
-              <button type="button" onClick={handleSave} className="ops-btn-primary min-h-[44px] text-sm">
+              <button type="button" onClick={handleSave} disabled={saving} className="ops-btn-primary min-h-[44px] text-sm">
                 <Save className="h-3.5 w-3.5" aria-hidden /> Save incident
               </button>
             ) : (
@@ -171,6 +194,19 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
           )}
         </div>
       </div>
+
+      <ShareIncidentDialog
+        open={shareOpen}
+        incidentTitle={pendingIncident?.title ?? title}
+        senderMemberId={senderMemberId}
+        loading={saving}
+        onClose={() => {
+          if (saving) return;
+          setShareOpen(false);
+          setPendingIncident(null);
+        }}
+        onConfirm={(shareWithMemberId) => void finalizeSave(shareWithMemberId)}
+      />
     </div>
   );
 };
