@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import { query } from '../db.js';
+import { flattenIncidentTasks, type IncidentWithTasks } from '../utils/incidentTasks.js';
 
 export const tasksRouter = Router();
 
 tasksRouter.get('/', async (_req, res, next) => {
   try {
-    const rows = await query<{ data: { tasks?: unknown[] } }>(
-      'SELECT data FROM incidents ORDER BY updated_at DESC',
+    const rows = await query<{ id: string; data: IncidentWithTasks }>(
+      'SELECT id, data FROM incidents ORDER BY updated_at DESC',
     );
-    const tasks = rows.flatMap((r) => r.data.tasks ?? []);
-    res.json(tasks);
+    res.json(flattenIncidentTasks(rows));
   } catch (err) {
     next(err);
   }

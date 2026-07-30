@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne } from '../db.js';
 import { indexIncident, type IncidentRecord } from '../services/vectorService.js';
+import { normalizeIncidentForSave } from '../utils/incidentTasks.js';
 
 export const incidentsRouter = Router();
 
@@ -38,7 +39,7 @@ incidentsRouter.get('/:id', async (req, res, next) => {
 
 incidentsRouter.post('/', async (req, res, next) => {
   try {
-    const incident = req.body as IncidentRecord;
+    const incident = normalizeIncidentForSave(req.body as IncidentRecord & { id: string; title: string; severity: string; status: string });
     await query(
       `INSERT INTO incidents (id, data, created_at, updated_at)
        VALUES ($1, $2::jsonb, $3::timestamptz, now())

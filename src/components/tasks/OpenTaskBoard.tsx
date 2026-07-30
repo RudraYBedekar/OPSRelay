@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { ActionItemTask, TaskStatus } from '../../types/incident';
+import type { ActionItemTask, Incident, TaskStatus } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { EmptyState } from '../common/EmptyState';
 import { getTaskStatusBadgeProps } from '../../utils/formatters';
@@ -8,6 +8,7 @@ import { Kanban, List } from 'lucide-react';
 
 interface OpenTaskBoardProps {
   tasks: ActionItemTask[];
+  incidents: Incident[];
   onUpdateTaskStatus: (taskId: string, newStatus: TaskStatus) => void;
   onInspectIncident: (incidentId: string) => void;
 }
@@ -28,12 +29,19 @@ const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
 
 export const OpenTaskBoard: React.FC<OpenTaskBoardProps> = ({
   tasks,
+  incidents,
   onUpdateTaskStatus,
   onInspectIncident,
 }) => {
   const [filter, setFilter] = useState('ALL');
   const [view, setView] = useState<'board' | 'list'>('board');
-  const incidents = [...new Map(tasks.map((t) => [t.incidentId, t.incidentTitle])).entries()];
+  const taskIncidents = [...new Map(tasks.map((t) => [t.incidentId, t.incidentTitle])).entries()];
+  const openIncidents = incidents
+    .filter((i) => i.status !== 'RESOLVED')
+    .map((i) => [i.id, i.title] as const);
+  const incidentOptions = [
+    ...new Map([...openIncidents, ...taskIncidents]).entries(),
+  ];
   const filtered = filter === 'ALL' ? tasks : tasks.filter((t) => t.incidentId === filter);
 
   if (tasks.length === 0) {
@@ -71,7 +79,7 @@ export const OpenTaskBoard: React.FC<OpenTaskBoardProps> = ({
           </div>
           <select value={filter} onChange={(e) => setFilter(e.target.value)} className="ops-input w-auto py-1.5 text-sm">
             <option value="ALL">All incidents</option>
-            {incidents.map(([id, title]) => (
+            {incidentOptions.map(([id, title]) => (
               <option key={id} value={id}>{id} — {title.slice(0, 40)}</option>
             ))}
           </select>

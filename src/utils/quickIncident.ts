@@ -1,4 +1,5 @@
 import type { Incident, Severity } from '../types/incident';
+import { withDefaultTasks } from './incidentTasks';
 
 export interface QuickIncidentInput {
   title: string;
@@ -15,7 +16,7 @@ export function buildQuickIncident(input: QuickIncidentInput): Incident {
   const notes = input.notes.trim();
   const firstLine = notes.split('\n').find((l) => l.trim()) ?? input.title.trim();
 
-  return {
+  return withDefaultTasks({
     id,
     title: input.title.trim(),
     service: input.service?.trim() || 'general',
@@ -42,5 +43,5 @@ export function buildQuickIncident(input: QuickIncidentInput): Incident {
     fixesApplied: [],
     tasks: [],
     similarIncidents: [],
-  };
+  });
 }

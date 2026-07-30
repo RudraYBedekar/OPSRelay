@@ -119,6 +119,14 @@ export const App: React.FC = () => {
     }
   };
 
+  const refreshTasks = async () => {
+    try {
+      setTasks(await apiService.getTasks());
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh tasks');
+    }
+  };
+
   useEffect(() => { loadDashboardData(); }, []);
 
   const handleAcknowledgeHandoff = async () => {
@@ -152,6 +160,7 @@ export const App: React.FC = () => {
     try {
       const saved = await apiService.saveIncident(newIncident);
       await refreshIncidents(saved);
+      await refreshTasks();
       await loadDashboardData({ silent: true });
       setSelectedIncident(saved);
       setActiveTab('dashboard');
@@ -166,8 +175,9 @@ export const App: React.FC = () => {
     try {
       const saved = await apiService.saveIncident(newIncident);
       await refreshIncidents(saved);
+      await refreshTasks();
       await loadDashboardData({ silent: true });
-      toast(`Incident ${saved.id} saved to database`, 'success');
+      toast(`Incident ${saved.id} saved — check Tasks tab`, 'success');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
@@ -185,6 +195,7 @@ export const App: React.FC = () => {
       const updated = await apiService.updateIncidentStatus(id, status);
       setIncidents((prev) => prev.map((i) => (i.id === id ? updated : i)));
       if (selectedIncident?.id === id) setSelectedIncident(updated);
+      await refreshTasks();
       toast(`Status updated to ${status}`, 'success');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Update failed');
@@ -335,6 +346,7 @@ export const App: React.FC = () => {
           {activeTab === 'tasks' && (
             <OpenTaskBoard
               tasks={tasks}
+              incidents={incidents}
               onUpdateTaskStatus={handleUpdateTaskStatus}
               onInspectIncident={handleInspectIncidentById}
             />

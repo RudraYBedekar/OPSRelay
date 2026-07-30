@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ExtractionResult, Incident, Severity } from '../../types/incident';
+import { withDefaultTasks } from '../../utils/incidentTasks';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { CheckCircle2, ChevronDown, ChevronUp, ListTodo, RotateCcw, Save, Clock } from 'lucide-react';
 
@@ -26,7 +27,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
 
   const handleSave = () => {
     const id = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
-    onSave({
+    onSave(withDefaultTasks({
       id,
       title,
       service,
@@ -44,7 +45,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
       fixesApplied: result.suggestedFixes,
       tasks: result.tasks.map((t, i) => ({ ...t, id: `tsk-${i}`, incidentId: id, incidentTitle: title })),
       similarIncidents: [],
-    });
+    }));
     setSaved(true);
   };
 
