@@ -26,6 +26,7 @@ import type {
   TaskStatus,
 } from './types/incident';
 import { apiService } from './services/apiService';
+import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents } from './utils/dashboardMetrics';
 
 const PAGE: Record<NavTab, { title: string; description: string }> = {
   dashboard: {
@@ -216,18 +217,9 @@ export const App: React.FC = () => {
   const incomingLead = shiftHandoff ? firstName(shiftHandoff.incomingLead) : 'Yash';
   const displayName = user?.name ?? incomingLead;
 
-  const liveMetrics = metrics
-    ? {
-        ...metrics,
-        activeSev0Sev1: incidents.filter(
-          (i) => (i.severity === 'SEV-0' || i.severity === 'SEV-1') && i.status !== 'RESOLVED',
-        ).length,
-        totalIncidents24h: incidents.filter(
-          (i) => Date.now() - new Date(i.createdAt).getTime() <= 24 * 60 * 60 * 1000,
-        ).length,
-        openTasksCount: tasks.filter((t) => t.status !== 'COMPLETED').length,
-      }
-    : null;
+  const liveMetrics = metrics ? deriveLiveMetrics(incidents, tasks, metrics) : null;
+  const openIncidentCount = countOpenIncidents(incidents);
+  const resolvedIncidentCount = countResolvedIncidents(incidents);
 
   const handleLogout = () => {
     logout();
@@ -281,20 +273,27 @@ export const App: React.FC = () => {
         />
       ) : (
         <>
-          <PageHeader title={PAGE[activeTab].title} description={PAGE[activeTab].description} />
+          <PageHeader
+            title={PAGE[activeTab].title}
+            description={activeTab === 'ask' ? undefined : PAGE[activeTab].description}
+          />
 
           {activeTab === 'dashboard' && (
             <div className="space-y-5">
-              {shiftHandoff && (
+              {shiftHandoff && liveMetrics && (
                 <HandoffCard
                   handoff={shiftHandoff}
                   investigatingCount={investigatingCount}
+                  activeSevCount={liveMetrics.activeSev0Sev1}
+                  openTasksCount={liveMetrics.openTasksCount}
                   onAcknowledge={handleAcknowledgeHandoff}
                 />
               )}
               {liveMetrics && (
                 <MetricsGrid
                   metrics={liveMetrics}
+                  openIncidentCount={openIncidentCount}
+                  resolvedIncidentCount={resolvedIncidentCount}
                   onCriticalClick={() => setDashboardSeverityFilter('SEV-1')}
                   onTasksClick={() => goTab('tasks')}
                 />
@@ -330,7 +329,6 @@ export const App: React.FC = () => {
             <AgentConsole
               incidents={incidents}
               onInspectIncident={handleInspectIncidentById}
-              onGoToTasks={() => goTab('tasks')}
             />
           )}
 

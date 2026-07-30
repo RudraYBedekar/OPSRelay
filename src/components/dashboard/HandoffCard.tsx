@@ -7,10 +7,18 @@ import { firstName } from '../../utils/avatar';
 interface HandoffCardProps {
   handoff: ShiftHandoff;
   investigatingCount: number;
+  activeSevCount: number;
+  openTasksCount: number;
   onAcknowledge: () => void;
 }
 
-export const HandoffCard: React.FC<HandoffCardProps> = ({ handoff, investigatingCount, onAcknowledge }) => {
+export const HandoffCard: React.FC<HandoffCardProps> = ({
+  handoff,
+  investigatingCount,
+  activeSevCount,
+  openTasksCount,
+  onAcknowledge,
+}) => {
   const acked = handoff.handshakeStatus === 'ACKNOWLEDGED';
 
   return (
@@ -51,7 +59,7 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({ handoff, investigating
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-center min-w-[4.5rem]">
-              <p className="text-xl font-bold text-brand tabular-nums">{handoff.activeSevCount}</p>
+              <p className="text-xl font-bold text-brand tabular-nums">{activeSevCount}</p>
               <p className="text-[10px] font-medium uppercase tracking-wide text-red-700/80 mt-0.5">Critical</p>
             </div>
             <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center min-w-[4.5rem]">
@@ -59,7 +67,7 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({ handoff, investigating
               <p className="text-[10px] font-medium uppercase tracking-wide text-amber-800/80 mt-0.5">Active</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center min-w-[4.5rem]">
-              <p className="text-xl font-bold text-ops-text tabular-nums">{handoff.openTasksCount}</p>
+              <p className="text-xl font-bold text-ops-text tabular-nums">{openTasksCount}</p>
               <p className="text-[10px] font-medium uppercase tracking-wide text-ops-muted mt-0.5">Tasks</p>
             </div>
           </div>
