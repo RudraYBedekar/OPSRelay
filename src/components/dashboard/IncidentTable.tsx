@@ -13,11 +13,24 @@ type SortDir = 'asc' | 'desc';
 const SEV_ORDER: Record<string, number> = { 'SEV-0': 0, 'SEV-1': 1, 'SEV-2': 2, 'SEV-3': 3 };
 const PAGE_SIZE = 10;
 
+function matchesSeverityFilter(severity: string, filter: string): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'CRITICAL') return severity === 'SEV-0' || severity === 'SEV-1';
+  return severity === filter;
+}
+
+function matchesStatusFilter(status: string, filter: string): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'ACTIVE') return status !== 'RESOLVED';
+  return status === filter;
+}
+
 interface IncidentTableProps {
   incidents: Incident[];
   onSelectIncident: (incident: Incident) => void;
   searchFilter?: string;
   initialSeverity?: string;
+  initialStatus?: string;
   isRefreshing?: boolean;
 }
 
@@ -49,19 +62,21 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
   onSelectIncident,
   searchFilter = '',
   initialSeverity = 'ALL',
+  initialStatus = 'ALL',
   isRefreshing = false,
 }) => {
   const [localSearch, setLocalSearch] = useState('');
   const [severity, setSeverity] = useState(initialSeverity);
-  const [status, setStatus] = useState('ALL');
+  const [status, setStatus] = useState(initialStatus);
   const [sortKey, setSortKey] = useState<SortKey>('updated');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
 
   useEffect(() => {
     setSeverity(initialSeverity);
+    setStatus(initialStatus);
     setPage(0);
-  }, [initialSeverity]);
+  }, [initialSeverity, initialStatus]);
 
   useEffect(() => {
     setPage(0);
@@ -71,8 +86,8 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
 
   const filtered = useMemo(() => {
     return incidents.filter((inc) => {
-      if (severity !== 'ALL' && inc.severity !== severity) return false;
-      if (status !== 'ALL' && inc.status !== status) return false;
+      if (!matchesSeverityFilter(inc.severity, severity)) return false;
+      if (!matchesStatusFilter(inc.status, status)) return false;
       if (
         query &&
         !inc.title.toLowerCase().includes(query) &&
@@ -158,6 +173,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
             aria-label="Filter by severity"
           >
             <option value="ALL">All severity</option>
+            <option value="CRITICAL">Critical (SEV-0/1)</option>
             <option value="SEV-0">SEV-0</option>
             <option value="SEV-1">SEV-1</option>
             <option value="SEV-2">SEV-2</option>
@@ -170,6 +186,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
             aria-label="Filter by status"
           >
             <option value="ALL">All status</option>
+            <option value="ACTIVE">Active (not resolved)</option>
             <option value="OPEN">Open</option>
             <option value="INVESTIGATING">Investigating</option>
             <option value="MITIGATED">Mitigated</option>

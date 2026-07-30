@@ -59,6 +59,8 @@ export interface Incident {
   mttrMinutes?: number;
   leadSRE: string;
   shiftId: string;
+  ownerMemberId?: string;
+  ownerName?: string;
   timeline: TimelineEvent[];
   decisions: Decision[];
   fixesApplied: string[];

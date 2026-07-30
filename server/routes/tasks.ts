@@ -7,15 +7,27 @@ import {
   type IncidentTask,
   type IncidentWithTasks,
 } from '../utils/incidentTasks.js';
+import {
+  canViewIncident,
+  filterIncidentsForUser,
+  getGrantedOwnerMemberIds,
+} from '../services/incidentAccessService.js';
+import { isAuthEnabled } from '../config/auth.js';
 
 export const tasksRouter = Router();
 
-tasksRouter.get('/', async (_req, res, next) => {
+tasksRouter.get('/', async (req, res, next) => {
   try {
     const rows = await query<{ id: string; data: IncidentWithTasks }>(
       'SELECT id, data FROM incidents ORDER BY updated_at DESC',
     );
-    res.json(flattenIncidentTasks(rows));
+    const visible = await filterIncidentsForUser(
+      rows.map((row) => ({ ...row.data, id: row.data.id ?? row.id })),
+      req.user,
+    );
+    const visibleIds = new Set(visible.map((i) => i.id));
+    const filteredRows = rows.filter((row) => visibleIds.has(row.data.id ?? row.id));
+    res.json(flattenIncidentTasks(filteredRows));
   } catch (err) {
     next(err);
   }
@@ -34,6 +46,14 @@ tasksRouter.patch('/:taskId/status', async (req, res, next) => {
       const tasks = (row.data.tasks ?? []) as IncidentTask[];
       const idx = tasks.findIndex((t) => t.id === taskId);
       if (idx >= 0) {
+        const incident = row.data as IncidentWithTasks & { ownerMemberId?: string };
+        if (isAuthEnabled() && req.user) {
+          const granted = new Set(await getGrantedOwnerMemberIds(req.user.memberId));
+          if (!canViewIncident(incident, req.user, granted)) {
+            res.status(404).json({ error: `Task ${taskId} not found` });
+            return;
+          }
+        }
         tasks[idx].status = status;
         row.data.tasks = tasks;
         await query(
@@ -57,6 +77,14 @@ tasksRouter.patch('/:taskId/status', async (req, res, next) => {
       }
 
       const incident = { ...row.data, id: row.data.id ?? row.id };
+      if (isAuthEnabled() && req.user) {
+        const granted = new Set(await getGrantedOwnerMemberIds(req.user.memberId));
+        if (!canViewIncident(incident, req.user, granted)) {
+          res.status(404).json({ error: `Task ${taskId} not found` });
+          return;
+        }
+      }
+
       const defaultTask = buildDefaultTask(incident);
       if (defaultTask.id !== taskId) {
         res.status(404).json({ error: `Task ${taskId} not found` });

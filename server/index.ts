@@ -13,9 +13,11 @@ import { extractRouter } from './routes/extract.js';
 import { agentRouter } from './routes/agent.js';
 import { sampleLogsRouter } from './routes/sampleLogs.js';
 import { authRouter } from './routes/auth.js';
+import { accessRouter } from './routes/access.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
 import { isAuthEnabled } from './config/auth.js';
 import { migrateSecureAuthSchema } from './services/authMigration.js';
+import { migrateAccessSchema } from './services/incidentAccessService.js';
 import { getEmbeddingCount } from './services/vectorService.js';
 import { testBedrockConnection } from './services/llmService.js';
 import { securityHeaders } from './middleware/security.js';
@@ -90,6 +92,7 @@ protectedApi.get('/bedrock/test', async (_req, res) => {
   res.json(result);
 });
 
+protectedApi.use('/access', accessRouter);
 protectedApi.use('/incidents', incidentsRouter);
 protectedApi.use('/tasks', tasksRouter);
 protectedApi.use('/metrics', metricsRouter);
@@ -115,7 +118,8 @@ app.listen(PORT, async () => {
   if (isAuthEnabled()) {
     try {
       await migrateSecureAuthSchema();
-      console.log('SecureData auth schema: member_id ready');
+      await migrateAccessSchema();
+      console.log('SecureData auth schema: member_id + access sharing ready');
     } catch (err) {
       console.warn('SecureData auth migration skipped:', err instanceof Error ? err.message : err);
     }

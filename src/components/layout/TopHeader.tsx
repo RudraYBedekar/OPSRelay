@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-import { Activity, Database, LogOut, Menu, Plus, Search } from 'lucide-react';
+import { Activity, Database, LogOut, Menu, Plus, Search, Share2 } from 'lucide-react';
 
 import { UserAvatar } from '../common/UserAvatar';
 
@@ -28,6 +28,8 @@ interface TopHeaderProps {
 
   onLogout?: () => void;
 
+  onOpenAccess?: () => void;
+
 }
 
 
@@ -53,6 +55,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   userRole,
 
   onLogout,
+
+  onOpenAccess,
 
 }) => {
 
@@ -229,6 +233,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   )}
 
                 </div>
+
+                {memberId && onOpenAccess && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setMenuOpen(false); onOpenAccess(); }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-ops-subtext hover:bg-slate-50 min-h-[44px]"
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden />
+                    Share access
+                  </button>
+                )}
 
                 {onLogout && (
 

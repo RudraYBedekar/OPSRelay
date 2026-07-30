@@ -21,6 +21,7 @@ interface AppShellProps {
   memberId?: string;
   userRole?: string;
   onLogout?: () => void;
+  onOpenAccess?: () => void;
   children: React.ReactNode;
 }
 
@@ -42,6 +43,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   memberId,
   userRole,
   onLogout,
+  onOpenAccess,
   children,
 }) => (
   <div className="flex min-h-screen bg-ops-bg">
@@ -67,6 +69,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         memberId={memberId}
         userRole={userRole}
         onLogout={onLogout}
+        onOpenAccess={onOpenAccess}
       />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 md:px-6 md:py-6">{children}</main>
     </div>

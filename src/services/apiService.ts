@@ -449,6 +449,36 @@ class ApiService {
     const { user } = await crdbClient.getCurrentUser();
     return user;
   }
+
+  public async requestIncidentAccess(ownerMemberId: string, message?: string) {
+    if (!USE_CRDB) throw new Error('Access sharing requires CockroachDB');
+    return crdbClient.requestIncidentAccess(ownerMemberId, message);
+  }
+
+  public async getIncomingAccessRequests() {
+    if (!USE_CRDB) return [];
+    return crdbClient.getIncomingAccessRequests();
+  }
+
+  public async getOutgoingAccessRequests() {
+    if (!USE_CRDB) return [];
+    return crdbClient.getOutgoingAccessRequests();
+  }
+
+  public async getAccessGrants() {
+    if (!USE_CRDB) return [];
+    return crdbClient.getAccessGrants();
+  }
+
+  public async approveAccessRequest(id: string) {
+    if (!USE_CRDB) throw new Error('Access sharing requires CockroachDB');
+    return crdbClient.approveAccessRequest(id);
+  }
+
+  public async rejectAccessRequest(id: string) {
+    if (!USE_CRDB) throw new Error('Access sharing requires CockroachDB');
+    return crdbClient.rejectAccessRequest(id);
+  }
 }
 
 export const apiService = new ApiService();

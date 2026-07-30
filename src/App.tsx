@@ -13,6 +13,7 @@ import { IncidentDetailView } from './components/detail/IncidentDetailView';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { ErrorAlert } from './components/common/ErrorAlert';
 import { AuthGate } from './components/auth/AuthGate';
+import { AccessPanel } from './components/access/AccessPanel';
 import { useToast } from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { firstName } from './utils/avatar';
@@ -55,6 +56,7 @@ export const App: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [dashboardSeverityFilter, setDashboardSeverityFilter] = useState('ALL');
+  const [dashboardStatusFilter, setDashboardStatusFilter] = useState('ALL');
 
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [shiftHandoff, setShiftHandoff] = useState<ShiftHandoff | null>(null);
@@ -72,6 +74,7 @@ export const App: React.FC = () => {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  const [accessPanelOpen, setAccessPanelOpen] = useState(false);
 
   const intakeStep: 1 | 2 | 3 = extractionResult ? 3 : isExtracting ? 2 : 1;
 
@@ -287,7 +290,11 @@ export const App: React.FC = () => {
       memberId={user?.memberId}
       userRole={user?.role}
       onLogout={requiresAuth ? handleLogout : undefined}
+      onOpenAccess={user?.memberId ? () => setAccessPanelOpen(true) : undefined}
     >
+      {accessPanelOpen && user?.memberId && (
+        <AccessPanel memberId={user.memberId} onClose={() => setAccessPanelOpen(false)} />
+      )}
       {error && (
         <div className="mb-5">
           <ErrorAlert message={error} onRetry={loadDashboardData} />
@@ -328,8 +335,14 @@ export const App: React.FC = () => {
                   metrics={liveMetrics}
                   openIncidentCount={openIncidentCount}
                   resolvedIncidentCount={resolvedIncidentCount}
-                  onCriticalClick={() => setDashboardSeverityFilter('SEV-1')}
-                  onOpenClick={() => setDashboardSeverityFilter('ALL')}
+                  onCriticalClick={() => {
+                    setDashboardSeverityFilter('CRITICAL');
+                    setDashboardStatusFilter('ALL');
+                  }}
+                  onOpenClick={() => {
+                    setDashboardSeverityFilter('ALL');
+                    setDashboardStatusFilter('ACTIVE');
+                  }}
                   onTasksClick={() => goTab('tasks')}
                 />
               )}
@@ -338,6 +351,7 @@ export const App: React.FC = () => {
                 onSelectIncident={setSelectedIncident}
                 searchFilter={globalSearchQuery}
                 initialSeverity={dashboardSeverityFilter}
+                initialStatus={dashboardStatusFilter}
                 isRefreshing={isRefreshing}
               />
             </div>

@@ -118,4 +118,19 @@ export const crdbClient = {
       method: 'POST',
       body: JSON.stringify(log),
     }),
+  requestIncidentAccess: (ownerMemberId: string, message?: string) =>
+    request<import('../types/access').AccessRequest>('/access/request', {
+      method: 'POST',
+      body: JSON.stringify({ ownerMemberId, message }),
+    }),
+  getIncomingAccessRequests: () =>
+    request<import('../types/access').AccessRequest[]>('/access/incoming'),
+  getOutgoingAccessRequests: () =>
+    request<import('../types/access').AccessRequest[]>('/access/outgoing'),
+  getAccessGrants: () =>
+    request<import('../types/access').AccessGrant[]>('/access/grants'),
+  approveAccessRequest: (id: string) =>
+    request<import('../types/access').AccessRequest>(`/access/requests/${id}/approve`, { method: 'POST' }),
+  rejectAccessRequest: (id: string) =>
+    request<import('../types/access').AccessRequest>(`/access/requests/${id}/reject`, { method: 'POST' }),
 };
