@@ -6,6 +6,7 @@ import { MemorySourceCard } from './MemorySourceCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useToast } from '../common/Toast';
 import { apiService } from '../../services/apiService';
+import { useAuth } from '../../context/AuthContext';
 import type { Incident, MemoryChatMessage, RelatedIncident } from '../../types/incident';
 
 interface AgentRunResult {
@@ -73,6 +74,7 @@ function threadToMessages(thread: ChatThread): LiveMessage[] {
 }
 
 export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspectIncident }) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [incidentId, setIncidentId] = useState('');
@@ -100,8 +102,12 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   };
 
   useEffect(() => {
-    loadHistory();
-  }, []);
+    setLoadingHistory(true);
+    setChatHistory([]);
+    setMessages([]);
+    setActiveThreadId(null);
+    void loadHistory();
+  }, [user?.memberId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });

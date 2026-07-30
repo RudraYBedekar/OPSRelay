@@ -93,6 +93,7 @@ export interface MemoryChatMessage {
   suggestedRunbooks?: { title: string; url: string; codeSnippet?: string }[];
   agentMode?: string;
   linkedIncidentId?: string;
+  ownerMemberId?: string;
 }
 
 export interface ShiftHandoff {

@@ -40,7 +40,7 @@ agentRouter.post('/run', async (req, res, next) => {
 
     if (saveChat !== false) {
       try {
-        await saveAgentChatToMemory(queryText, incidentId, result);
+        await saveAgentChatToMemory(queryText, incidentId, result, req.user);
       } catch (err) {
         console.warn('Failed to save chat to memory_chats:', err instanceof Error ? err.message : err);
       }

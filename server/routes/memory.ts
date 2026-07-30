@@ -3,15 +3,22 @@ import { query } from '../db.js';
 import { isBedrockConfigured } from '../config/bedrock.js';
 import { runAgent } from '../services/agentService.js';
 import { getEmbeddingCount } from '../services/vectorService.js';
+import { chatBelongsToUser, saveAgentChatToMemory } from '../services/chatPersistence.js';
+import { filterIncidentsForUser } from '../services/incidentAccessService.js';
+import { isAuthEnabled } from '../config/auth.js';
 
 export const memoryRouter = Router();
 
-memoryRouter.get('/', async (_req, res, next) => {
+memoryRouter.get('/', async (req, res, next) => {
   try {
-    const rows = await query<{ data: unknown }>(
+    const rows = await query<{ data: { ownerMemberId?: string } }>(
       'SELECT data FROM memory_chats ORDER BY created_at ASC',
     );
-    res.json(rows.map((r) => r.data));
+    const memberId = req.user?.memberId;
+    const chats = rows
+      .map((r) => r.data)
+      .filter((data) => chatBelongsToUser(data, memberId));
+    res.json(chats);
   } catch (err) {
     next(err);
   }
@@ -38,14 +45,17 @@ memoryRouter.post('/query', async (req, res, next) => {
       return;
     }
 
-    const { answer, similarIncidents, mode } = await runAgent(queryText);
+    const result = await runAgent(queryText, undefined, req.user);
 
     const incidentRows = await query<{ data: Record<string, unknown> }>(
       'SELECT data FROM incidents',
     );
-    const incidents = incidentRows.map((r) => r.data);
+    const allIncidents = incidentRows.map((r) => r.data);
+    const incidents = isAuthEnabled() && req.user
+      ? await filterIncidentsForUser(allIncidents, req.user)
+      : allIncidents;
 
-    const matches = similarIncidents.map((m) => {
+    const matches = result.similarIncidents.map((m) => {
       const inc = incidents.find((i) => i.id === m.id);
       return {
         id: m.id,
@@ -57,7 +67,7 @@ memoryRouter.post('/query', async (req, res, next) => {
         citations: [
           `Vector chunk: ${m.id}`,
           `Postmortem #${m.id}-PM`,
-          mode === 'bedrock' ? 'Bedrock Agent + CRDB Vector' : mode === 'local' ? 'Local Vector + CRDB' : 'Keyword fallback',
+          result.mode === 'bedrock' ? 'Bedrock Agent + CRDB Vector' : result.mode === 'local' ? 'Local Vector + CRDB' : 'Keyword fallback',
         ],
         severity: inc?.severity ?? 'SEV-2',
         resolvedDate: inc?.resolvedAt ? String(inc.resolvedAt).split('T')[0] : '2026-07-26',
@@ -65,14 +75,23 @@ memoryRouter.post('/query', async (req, res, next) => {
     });
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const ownerMemberId = isAuthEnabled() && req.user ? req.user.memberId : undefined;
 
-    const userMsg = { id: `user-${Date.now()}`, sender: 'user', text: queryText, timestamp: timeStr };
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: queryText,
+      timestamp: timeStr,
+      ownerMemberId,
+    };
     const assistantMsg = {
       id: `msg-${Date.now()}`,
       sender: 'assistant',
-      text: answer,
+      text: result.answer,
       timestamp: timeStr,
       matchedIncidents: matches,
+      agentMode: result.mode,
+      ownerMemberId,
       suggestedRunbooks: matches[0]
         ? [
             {
@@ -95,9 +114,22 @@ memoryRouter.post('/query', async (req, res, next) => {
   }
 });
 
-memoryRouter.delete('/', async (_req, res, next) => {
+memoryRouter.delete('/', async (req, res, next) => {
   try {
-    await query('DELETE FROM memory_chats');
+    if (isAuthEnabled() && req.user) {
+      const rows = await query<{ id: string; data: { ownerMemberId?: string } }>(
+        'SELECT id, data FROM memory_chats',
+      );
+      const toDelete = rows
+        .filter((row) => chatBelongsToUser(row.data, req.user!.memberId))
+        .map((row) => row.id);
+
+      for (const id of toDelete) {
+        await query('DELETE FROM memory_chats WHERE id = $1', [id]);
+      }
+    } else {
+      await query('DELETE FROM memory_chats');
+    }
     res.status(204).send();
   } catch (err) {
     next(err);
