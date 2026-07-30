@@ -14,6 +14,7 @@ import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { ErrorAlert } from './components/common/ErrorAlert';
 import { AuthGate } from './components/auth/AuthGate';
 import { AccessPanel } from './components/access/AccessPanel';
+import { SendToEmployeePanel } from './components/share/SendToEmployeePanel';
 import { useToast } from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { firstName } from './utils/avatar';
@@ -38,9 +39,13 @@ const PAGE: Record<NavTab, { title: string; description: string }> = {
     title: 'New incident',
     description: 'Quick add with a name and few log lines, or use AI extract.',
   },
+  share: {
+    title: 'Send to employee',
+    description: 'Share an incident with a teammate using their member ID.',
+  },
   ask: {
     title: 'Ask AI',
-    description: 'Search incident memory and get recommended next steps.',
+    description: 'Search your incidents and any shared with you for recommended next steps.',
   },
   tasks: {
     title: 'Task board',
@@ -257,6 +262,21 @@ export const App: React.FC = () => {
   const incomingLead = shiftHandoff ? firstName(shiftHandoff.incomingLead) : 'Yash';
   const displayName = user?.name ?? incomingLead;
 
+  const personalHandoff: ShiftHandoff | null = user?.memberId
+    ? {
+        shiftId: user.memberId,
+        timestamp: new Date().toISOString(),
+        outgoingLead: user.name,
+        incomingLead: user.name,
+        activeSevCount: 0,
+        openTasksCount: 0,
+        keySummaries: [],
+        handshakeStatus: 'PENDING',
+      }
+    : null;
+
+  const dashboardHandoff = personalHandoff ?? shiftHandoff;
+
   const liveMetrics = metrics ? deriveLiveMetrics(incidents, tasks, metrics) : null;
   const openIncidentCount = countOpenIncidents(incidents);
   const resolvedIncidentCount = countResolvedIncidents(incidents);
@@ -324,20 +344,26 @@ export const App: React.FC = () => {
       ) : (
         <>
           <PageHeader
-            title={PAGE[activeTab].title}
+            title={
+              activeTab === 'dashboard' && user?.name
+                ? `${displayName}'s dashboard`
+                : PAGE[activeTab].title
+            }
             description={activeTab === 'ask' ? undefined : PAGE[activeTab].description}
           />
 
           {activeTab === 'dashboard' && (
             <div className="space-y-5">
-              {shiftHandoff && liveMetrics && (
+              {dashboardHandoff && liveMetrics && (
                 <HandoffCard
-                  handoff={shiftHandoff}
+                  handoff={dashboardHandoff}
                   liveSummaries={liveHandoffSummaries}
                   openIncidentCount={openIncidentCount}
                   activeSevCount={liveMetrics.activeSev0Sev1}
                   openTasksCount={liveMetrics.openTasksCount}
                   lastUpdated={liveUpdatedLabel}
+                  userName={user?.name}
+                  memberId={user?.memberId}
                   onAcknowledge={handleAcknowledgeHandoff}
                 />
               )}
@@ -383,6 +409,14 @@ export const App: React.FC = () => {
               lastRawNotes={lastRawNotes}
               onSaveExtracted={handleSaveExtractedIncident}
               onResetExtraction={() => setExtractionResult(null)}
+            />
+          )}
+
+          {activeTab === 'share' && (
+            <SendToEmployeePanel
+              incidents={incidents}
+              senderMemberId={user?.memberId}
+              onShared={() => void loadDashboardData({ silent: true })}
             />
           )}
 

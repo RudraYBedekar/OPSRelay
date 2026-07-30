@@ -456,6 +456,11 @@ class ApiService {
     return user;
   }
 
+  public async shareIncidentWithMember(incidentId: string, memberId: string) {
+    if (!USE_CRDB) throw new Error('Sharing requires CockroachDB');
+    return crdbClient.shareIncident(incidentId, memberId);
+  }
+
   public async requestIncidentAccess(ownerMemberId: string, message?: string) {
     if (!USE_CRDB) throw new Error('Access sharing requires CockroachDB');
     return crdbClient.requestIncidentAccess(ownerMemberId, message);

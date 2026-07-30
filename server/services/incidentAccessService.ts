@@ -83,7 +83,7 @@ export function canViewIncident(
   if (!isAuthEnabled() || !viewer) return true;
 
   const owner = incident.ownerMemberId;
-  if (!owner) return true;
+  if (!owner) return false;
   if (owner === viewer.memberId) return true;
   if (grantedOwnerIds.has(owner)) return true;
   if (incident.sharedWithMemberIds?.includes(viewer.memberId)) return true;
@@ -129,7 +129,7 @@ export async function normalizeShareTargets(
   return normalized;
 }
 
-export async function filterIncidentsForUser<T extends { ownerMemberId?: string }>(
+export async function filterIncidentsForUser<T extends { ownerMemberId?: string; sharedWithMemberIds?: string[] }>(
   incidents: T[],
   viewer: AuthUser | undefined,
 ): Promise<T[]> {
@@ -137,6 +137,18 @@ export async function filterIncidentsForUser<T extends { ownerMemberId?: string 
 
   const granted = new Set(await getGrantedOwnerMemberIds(viewer.memberId));
   return incidents.filter((inc) => canViewIncident(inc, viewer, granted));
+}
+
+export async function shareIncidentWithMember(
+  incident: { ownerMemberId?: string; sharedWithMemberIds?: string[] },
+  owner: AuthUser,
+  recipientMemberId: string,
+): Promise<string[]> {
+  if (incident.ownerMemberId && incident.ownerMemberId !== owner.memberId) {
+    throw new Error('Only the incident owner can share this incident.');
+  }
+  const existing = incident.sharedWithMemberIds ?? [];
+  return normalizeShareTargets(owner.memberId, [...existing, recipientMemberId]);
 }
 
 export async function createAccessRequest(

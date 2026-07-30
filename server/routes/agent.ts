@@ -36,7 +36,7 @@ agentRouter.post('/run', async (req, res, next) => {
       return;
     }
 
-    const result = await runAgent(queryText, incidentId);
+    const result = await runAgent(queryText, incidentId, req.user);
 
     if (saveChat !== false) {
       try {
@@ -63,7 +63,7 @@ agentRouter.post('/respond', async (req, res, next) => {
       res.status(400).json({ error: 'query is required' });
       return;
     }
-    const result = await runAgent(queryText, incidentId);
+    const result = await runAgent(queryText, incidentId, req.user);
     res.json(result);
   } catch (err) {
     next(err);

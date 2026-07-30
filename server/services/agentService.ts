@@ -2,6 +2,9 @@ import { query, queryOne } from '../db.js';
 import { isBedrockConfigured } from '../config/bedrock.js';
 import { generateAgentResponse } from './llmService.js';
 import { getEmbedMode } from './embedService.js';
+import type { AuthUser } from './authService.js';
+import { canViewIncident, filterIncidentsForUser, getGrantedOwnerMemberIds } from './incidentAccessService.js';
+import { isAuthEnabled } from '../config/auth.js';
 import {
   searchSimilarIncidents,
   searchIncidentsInCorpus,
@@ -149,21 +152,30 @@ function incidentToMatch(
   };
 }
 
-export async function runAgent(queryText: string, incidentId?: string): Promise<AgentResult> {
+export async function runAgent(queryText: string, incidentId?: string, viewer?: AuthUser): Promise<AgentResult> {
   const steps: AgentStep[] = [];
   const embeddingCount = await getEmbeddingCount();
 
   steps.push({
     step: 1,
     action: 'Load incident corpus',
-    detail: 'Fetching incidents from CockroachDB Rudra database',
+    detail: viewer
+      ? `Fetching incidents visible to ${viewer.memberId}`
+      : 'Fetching incidents from CockroachDB Rudra database',
     status: 'done',
   });
 
-  const incidentRows = await query<{ data: IncidentRecord & { severity?: string; status?: string } }>(
+  const incidentRows = await query<{ data: IncidentRecord & { severity?: string; status?: string; ownerMemberId?: string; sharedWithMemberIds?: string[] } }>(
     'SELECT data FROM incidents ORDER BY updated_at DESC',
   );
-  const incidents = incidentRows.map((r) => r.data);
+  const allIncidents = incidentRows.map((r) => r.data);
+  const incidents = isAuthEnabled() && viewer
+    ? await filterIncidentsForUser(allIncidents, viewer)
+    : allIncidents;
+  const visibleIds = new Set(incidents.map((i) => i.id));
+  const granted = viewer && isAuthEnabled()
+    ? new Set(await getGrantedOwnerMemberIds(viewer.memberId))
+    : new Set<string>();
 
   const corpusHits = searchIncidentsInCorpus(queryText, incidents, 8);
 
@@ -179,7 +191,8 @@ export async function runAgent(queryText: string, incidentId?: string): Promise<
 
   if (embeddingCount > 0) {
     try {
-      const vectorHits = await searchSimilarIncidents(queryText, 5);
+      const vectorHits = (await searchSimilarIncidents(queryText, 8))
+        .filter((hit) => visibleIds.has(hit.incidentId));
       hits = mergeSearchHits(corpusHits, vectorHits).slice(0, 5);
       mode = getEmbedMode() === 'bedrock' ? 'bedrock' : 'local';
     } catch {
@@ -236,12 +249,20 @@ export async function runAgent(queryText: string, incidentId?: string): Promise<
     const fromList = incidents.find((i) => i.id === queriedIncidentId);
     if (fromList) {
       activeIncident = fromList as Record<string, unknown>;
-    } else {
+    } else if (!isAuthEnabled() || !viewer) {
       const row = await queryOne<{ data: Record<string, unknown> }>(
         'SELECT data FROM incidents WHERE id = $1',
         [queriedIncidentId],
       );
       activeIncident = row?.data ?? null;
+    } else {
+      const row = await queryOne<{ data: Record<string, unknown> & { ownerMemberId?: string; sharedWithMemberIds?: string[] } }>(
+        'SELECT data FROM incidents WHERE id = $1',
+        [queriedIncidentId],
+      );
+      if (row?.data && canViewIncident(row.data, viewer, granted)) {
+        activeIncident = row.data;
+      }
     }
 
     if (activeIncident) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ShiftHandoff } from '../../types/incident';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { UserAvatar } from '../common/UserAvatar';
 import { firstName } from '../../utils/avatar';
 
@@ -11,6 +11,8 @@ interface HandoffCardProps {
   activeSevCount: number;
   openTasksCount: number;
   lastUpdated?: string;
+  userName?: string;
+  memberId?: string;
   onAcknowledge: () => void;
 }
 
@@ -21,9 +23,12 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
   activeSevCount,
   openTasksCount,
   lastUpdated,
+  userName,
+  memberId,
   onAcknowledge,
 }) => {
   const acked = handoff.handshakeStatus === 'ACKNOWLEDGED';
+  const personalized = Boolean(memberId && userName);
 
   return (
     <div className="ops-card overflow-hidden">
@@ -31,25 +36,26 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
         <div className="flex-1 space-y-4 min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-ops-muted">Shift handoff</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-ops-muted">
+                {personalized ? 'Your workspace' : 'Shift handoff'}
+              </p>
               {lastUpdated && (
                 <p className="text-[10px] text-ops-muted">Live · {lastUpdated}</p>
               )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <UserAvatar name={handoff.outgoingLead} size="lg" />
+                <UserAvatar name={userName ?? handoff.outgoingLead} size="lg" />
                 <div>
-                  <p className="text-sm font-semibold text-ops-text">{firstName(handoff.outgoingLead)}</p>
-                  <p className="text-xs text-ops-muted">Outgoing</p>
-                </div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-ops-muted shrink-0" aria-hidden />
-              <div className="flex items-center gap-2">
-                <UserAvatar name={handoff.incomingLead} size="lg" />
-                <div>
-                  <p className="text-sm font-semibold text-ops-text">{firstName(handoff.incomingLead)}</p>
-                  <p className="text-xs text-ops-muted">Incoming</p>
+                  <p className="text-sm font-semibold text-ops-text">
+                    {firstName(userName ?? handoff.outgoingLead)}
+                  </p>
+                  <p className="text-xs text-ops-muted">
+                    {personalized ? 'Your incidents & tasks' : 'Outgoing'}
+                  </p>
+                  {personalized && memberId && (
+                    <p className="text-[11px] font-mono text-brand mt-0.5">{memberId}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -57,7 +63,11 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
 
           <ul className="space-y-2">
             {liveSummaries.length === 0 ? (
-              <li className="text-sm text-ops-muted">No open incidents — queue is clear.</li>
+              <li className="text-sm text-ops-muted">
+                {personalized
+                  ? 'No open incidents yet — create one under New Incident or wait for a shared incident.'
+                  : 'No open incidents — queue is clear.'}
+              </li>
             ) : (
               liveSummaries.map((s, i) => (
                 <li key={i} className="text-sm text-ops-subtext leading-snug break-words">
@@ -85,25 +95,27 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onAcknowledge}
-            disabled={acked}
-            title={acked ? 'Handoff acknowledged' : 'Acknowledge shift handoff'}
-            className={`min-h-[44px] w-full sm:w-auto lg:min-w-[11rem] ${
-              acked
-                ? 'ops-btn-secondary border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'ops-btn-primary'
-            }`}
-          >
-            {acked ? (
-              <>
-                <CheckCircle2 className="h-4 w-4" aria-hidden /> Acknowledged
-              </>
-            ) : (
-              'Acknowledge handoff'
-            )}
-          </button>
+          {!personalized && (
+            <button
+              type="button"
+              onClick={onAcknowledge}
+              disabled={acked}
+              title={acked ? 'Handoff acknowledged' : 'Acknowledge shift handoff'}
+              className={`min-h-[44px] w-full sm:w-auto lg:min-w-[11rem] ${
+                acked
+                  ? 'ops-btn-secondary border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'ops-btn-primary'
+              }`}
+            >
+              {acked ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" aria-hidden /> Acknowledged
+                </>
+              ) : (
+                'Acknowledge handoff'
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

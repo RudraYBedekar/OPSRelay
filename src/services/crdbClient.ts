@@ -118,6 +118,11 @@ export const crdbClient = {
       method: 'POST',
       body: JSON.stringify(log),
     }),
+  shareIncident: (incidentId: string, memberId: string) =>
+    request<{ incidentId: string; sharedWithMemberIds: string[] }>(`/incidents/${incidentId}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ memberId }),
+    }),
   requestIncidentAccess: (ownerMemberId: string, message?: string) =>
     request<import('../types/access').AccessRequest>('/access/request', {
       method: 'POST',

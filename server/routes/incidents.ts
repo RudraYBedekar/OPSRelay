@@ -7,6 +7,7 @@ import {
   filterIncidentsForUser,
   getGrantedOwnerMemberIds,
   normalizeShareTargets,
+  shareIncidentWithMember,
 } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
 
@@ -140,6 +141,58 @@ incidentsRouter.patch('/:id/status', async (req, res, next) => {
     );
     res.json(incident);
   } catch (err) {
+    next(err);
+  }
+});
+
+incidentsRouter.post('/:id/share', async (req, res, next) => {
+  try {
+    if (!isAuthEnabled() || !req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const { memberId } = req.body as { memberId?: string };
+    if (!memberId?.trim()) {
+      res.status(400).json({ error: 'Recipient member ID is required' });
+      return;
+    }
+
+    const row = await queryOne<{ data: Record<string, unknown> }>(
+      'SELECT data FROM incidents WHERE id = $1',
+      [req.params.id],
+    );
+    if (!row) {
+      res.status(404).json({ error: `Incident ${req.params.id} not found` });
+      return;
+    }
+
+    const incident = row.data as { ownerMemberId?: string; sharedWithMemberIds?: string[] };
+    if (incident.ownerMemberId && incident.ownerMemberId !== req.user.memberId) {
+      res.status(403).json({ error: 'Only the incident owner can share this incident' });
+      return;
+    }
+
+    if (!incident.ownerMemberId) {
+      incident.ownerMemberId = req.user.memberId;
+    }
+
+    incident.sharedWithMemberIds = await shareIncidentWithMember(incident, req.user, memberId);
+    await query(
+      'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
+      [req.params.id, JSON.stringify(incident)],
+    );
+
+    res.json({ incidentId: req.params.id, sharedWithMemberIds: incident.sharedWithMemberIds });
+  } catch (err) {
+    if (err instanceof Error && (
+      err.message.includes('Invalid') ||
+      err.message.includes('No user') ||
+      err.message.includes('Only the incident owner')
+    )) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     next(err);
   }
 });

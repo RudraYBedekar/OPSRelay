@@ -8,13 +8,15 @@ import {
   X,
   PanelLeftClose,
   PanelLeft,
+  Send,
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'intake' | 'ask' | 'tasks';
+export type NavTab = 'dashboard' | 'intake' | 'share' | 'ask' | 'tasks';
 
 const NAV: { id: NavTab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'intake', label: 'New Incident', icon: FilePlus2 },
+  { id: 'share', label: 'Send to employee', icon: Send },
   { id: 'ask', label: 'Ask AI', icon: MessageSquare },
   { id: 'tasks', label: 'Tasks', icon: Kanban },
 ];
