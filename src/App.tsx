@@ -66,15 +66,20 @@ export const App: React.FC = () => {
   const [lastRawNotes, setLastRawNotes] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
 
   const intakeStep: 1 | 2 | 3 = extractionResult ? 3 : isExtracting ? 2 : 1;
 
-  const loadDashboardData = async () => {
-    setIsLoading(true);
-    setError(null);
+  const loadDashboardData = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (silent) setIsRefreshing(true);
+    else {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
       if (apiService.isUsingCrdb()) {
         const health = await apiService.checkDbHealth();
@@ -94,7 +99,22 @@ export const App: React.FC = () => {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
-      setIsLoading(false);
+      if (silent) setIsRefreshing(false);
+      else setIsLoading(false);
+    }
+  };
+
+  const refreshIncidents = async (saved?: Incident) => {
+    if (saved) {
+      setIncidents((prev) => [saved, ...prev.filter((i) => i.id !== saved.id)]);
+      setDashboardSeverityFilter('ALL');
+    }
+    try {
+      const incs = await apiService.getIncidents();
+      setIncidents(incs);
+      setDashboardSeverityFilter('ALL');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh incidents');
     }
   };
 
@@ -129,10 +149,12 @@ export const App: React.FC = () => {
 
   const handleSaveExtractedIncident = async (newIncident: Incident) => {
     try {
-      await apiService.saveIncident(newIncident);
-      await loadDashboardData();
-      setSelectedIncident(newIncident);
-      toast(`Incident ${newIncident.id} saved`, 'success');
+      const saved = await apiService.saveIncident(newIncident);
+      await refreshIncidents(saved);
+      await loadDashboardData({ silent: true });
+      setSelectedIncident(saved);
+      setActiveTab('dashboard');
+      toast(`Incident ${saved.id} saved`, 'success');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
@@ -141,9 +163,10 @@ export const App: React.FC = () => {
 
   const handleQuickSaveIncident = async (newIncident: Incident) => {
     try {
-      await apiService.saveIncident(newIncident);
-      await loadDashboardData();
-      toast(`Incident ${newIncident.id} saved to database`, 'success');
+      const saved = await apiService.saveIncident(newIncident);
+      await refreshIncidents(saved);
+      await loadDashboardData({ silent: true });
+      toast(`Incident ${saved.id} saved to database`, 'success');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
@@ -192,6 +215,19 @@ export const App: React.FC = () => {
   const investigatingCount = incidents.filter((i) => i.status === 'INVESTIGATING').length;
   const incomingLead = shiftHandoff ? firstName(shiftHandoff.incomingLead) : 'Yash';
   const displayName = user?.name ?? incomingLead;
+
+  const liveMetrics = metrics
+    ? {
+        ...metrics,
+        activeSev0Sev1: incidents.filter(
+          (i) => (i.severity === 'SEV-0' || i.severity === 'SEV-1') && i.status !== 'RESOLVED',
+        ).length,
+        totalIncidents24h: incidents.filter(
+          (i) => Date.now() - new Date(i.createdAt).getTime() <= 24 * 60 * 60 * 1000,
+        ).length,
+        openTasksCount: tasks.filter((t) => t.status !== 'COMPLETED').length,
+      }
+    : null;
 
   const handleLogout = () => {
     logout();
@@ -256,9 +292,9 @@ export const App: React.FC = () => {
                   onAcknowledge={handleAcknowledgeHandoff}
                 />
               )}
-              {metrics && (
+              {liveMetrics && (
                 <MetricsGrid
-                  metrics={metrics}
+                  metrics={liveMetrics}
                   onCriticalClick={() => setDashboardSeverityFilter('SEV-1')}
                   onTasksClick={() => goTab('tasks')}
                 />
@@ -268,6 +304,7 @@ export const App: React.FC = () => {
                 onSelectIncident={setSelectedIncident}
                 searchFilter={globalSearchQuery}
                 initialSeverity={dashboardSeverityFilter}
+                isRefreshing={isRefreshing}
               />
             </div>
           )}

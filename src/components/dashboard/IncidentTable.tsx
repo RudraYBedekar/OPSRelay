@@ -18,6 +18,7 @@ interface IncidentTableProps {
   onSelectIncident: (incident: Incident) => void;
   searchFilter?: string;
   initialSeverity?: string;
+  isRefreshing?: boolean;
 }
 
 function SortBtn({
@@ -48,6 +49,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
   onSelectIncident,
   searchFilter = '',
   initialSeverity = 'ALL',
+  isRefreshing = false,
 }) => {
   const [localSearch, setLocalSearch] = useState('');
   const [severity, setSeverity] = useState(initialSeverity);
@@ -60,6 +62,10 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
     setSeverity(initialSeverity);
     setPage(0);
   }, [initialSeverity]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [incidents.length]);
 
   const query = (searchFilter || localSearch).toLowerCase();
 
@@ -101,8 +107,12 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
           cmp = a.leadSRE.localeCompare(b.leadSRE);
           break;
         case 'updated':
-        default:
-          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        default: {
+          const aTime = new Date(a.updatedAt ?? a.createdAt).getTime();
+          const bTime = new Date(b.updatedAt ?? b.createdAt).getTime();
+          cmp = aTime - bTime;
+          break;
+        }
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -126,6 +136,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
       <div className="flex flex-col gap-3 border-b border-ops-border bg-slate-50/60 px-4 py-3 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-ops-text">
           Incidents <span className="font-normal text-ops-muted">({filtered.length})</span>
+          {isRefreshing && <span className="ml-2 text-xs font-normal text-ops-muted">Refreshing…</span>}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[10rem] sm:max-w-[14rem]">
@@ -220,7 +231,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                       </span>
                     </td>
                     <td className="px-5 py-4"><StatusBadge status={inc.status} /></td>
-                    <td className="px-5 py-4 text-xs text-ops-subtext whitespace-nowrap">{timeAgo(inc.createdAt)}</td>
+                    <td className="px-5 py-4 text-xs text-ops-subtext whitespace-nowrap">{timeAgo(inc.updatedAt ?? inc.createdAt)}</td>
                     <td className="px-5 py-4 text-xs text-ops-subtext">{inc.leadSRE}</td>
                     <td className="px-5 py-4">
                       <ChevronRight className="h-4 w-4 text-ops-muted group-hover:text-brand" aria-hidden />

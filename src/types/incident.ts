@@ -54,6 +54,7 @@ export interface Incident {
   status: IncidentStatus;
   summary: string;
   createdAt: string;
+  updatedAt?: string;
   resolvedAt?: string;
   mttrMinutes?: number;
   leadSRE: string;

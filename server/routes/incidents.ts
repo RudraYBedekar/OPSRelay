@@ -6,10 +6,15 @@ export const incidentsRouter = Router();
 
 incidentsRouter.get('/', async (_req, res, next) => {
   try {
-    const rows = await query<{ data: unknown }>(
-      'SELECT data FROM incidents ORDER BY updated_at DESC',
+    const rows = await query<{ data: Record<string, unknown>; updated_at: string }>(
+      'SELECT data, updated_at FROM incidents ORDER BY updated_at DESC',
     );
-    res.json(rows.map((r) => r.data));
+    res.json(
+      rows.map((r) => ({
+        ...r.data,
+        updatedAt: r.updated_at,
+      })),
+    );
   } catch (err) {
     next(err);
   }
