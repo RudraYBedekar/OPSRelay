@@ -7,11 +7,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function migrateTeamChatSchema(): Promise<void> {
   const sqlPath = path.join(__dirname, '..', 'schemaTeamChat.sql');
-  const sql = fs.readFileSync(sqlPath, 'utf8');
+  const raw = fs.readFileSync(sqlPath, 'utf8');
+  const sql = raw
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n');
   const statements = sql
     .split(';')
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith('--'));
+    .filter((s) => s.length > 0);
 
   for (const statement of statements) {
     await pool.query(statement);
