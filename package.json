@@ -15,6 +15,7 @@
     "test:e2e": "tsx server/scripts/e2eTest.ts",
     "test:db": "node servers/test-db.js",
     "db:embed": "tsx server/scripts/embedIncidents.ts",
+    "db:migrate": "tsx server/scripts/runMigrations.ts",
     "setup:ai": "npm run db:seed-all",
     "build": "tsc -b && vite build",
     "build:server": "tsc -p tsconfig.server.json",

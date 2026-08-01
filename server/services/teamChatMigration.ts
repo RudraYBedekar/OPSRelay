@@ -18,6 +18,11 @@ export async function migrateTeamChatSchema(): Promise<void> {
     .filter((s) => s.length > 0);
 
   for (const statement of statements) {
-    await pool.query(statement);
+    try {
+      await pool.query(statement);
+    } catch (err) {
+      const preview = statement.slice(0, 80).replace(/\s+/g, ' ');
+      throw new Error(`${err instanceof Error ? err.message : err} [SQL: ${preview}...]`);
+    }
   }
 }
