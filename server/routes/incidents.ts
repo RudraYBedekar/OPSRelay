@@ -10,6 +10,7 @@ import {
   shareIncidentWithMember,
 } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
+import { triggerCommanderIfCritical } from '../services/commanderService.js';
 
 export const incidentsRouter = Router();
 
@@ -93,6 +94,14 @@ incidentsRouter.post('/', async (req, res, next) => {
     indexIncident(incident).catch((err) =>
       console.warn(`Vector index failed for ${incident.id}:`, err.message),
     );
+
+    const isNewCritical = !existing && (incident.severity === 'SEV-0' || incident.severity === 'SEV-1');
+    if (isNewCritical) {
+      triggerCommanderIfCritical(
+        { id: incident.id, severity: incident.severity },
+        req.user,
+      ).catch((err) => console.warn('Commander auto-launch:', err));
+    }
 
     res.json(incident);
   } catch (err) {

@@ -138,4 +138,44 @@ export const crdbClient = {
     request<import('../types/access').AccessRequest>(`/access/requests/${id}/approve`, { method: 'POST' }),
   rejectAccessRequest: (id: string) =>
     request<import('../types/access').AccessRequest>(`/access/requests/${id}/reject`, { method: 'POST' }),
+  listWarRooms: () =>
+    request<import('../types/commander').ActiveWarRoom[]>('/commander'),
+  getWarRoom: (incidentId: string) =>
+    request<import('../types/commander').WarRoomState>(`/commander/${incidentId}`),
+  getCommanderReplay: (incidentId: string) =>
+    request<import('../types/commander').ReplayEvent[]>(`/commander/${incidentId}/replay`),
+  launchCommander: (incidentId: string) =>
+    request<import('../types/commander').WarRoomState>(`/commander/${incidentId}/launch`, { method: 'POST' }),
+  recordCommanderAction: (incidentId: string, body: { title: string; description?: string; outcome?: string }) =>
+    request<import('../types/commander').RecordActionResult>(`/commander/${incidentId}/actions`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  acknowledgeCommander: (incidentId: string, _memberId: string) =>
+    request<import('../types/commander').WarRoomState>(`/commander/${incidentId}/acknowledge`, { method: 'POST' }),
+  escalateCommander: (incidentId: string) =>
+    request<import('../types/commander').WarRoomState>(`/commander/${incidentId}/escalate`, { method: 'POST' }),
+  resolveCommander: (incidentId: string) =>
+    request<import('../types/commander').WarRoomState>(`/commander/${incidentId}/resolve`, { method: 'POST' }),
+  listTeamChats: () =>
+    request<import('../types/teamChat').TeamChatSummary[]>('/team-chat'),
+  listTeamChatMembers: () =>
+    request<import('../types/teamChat').TeamChatMember[]>('/team-chat/members'),
+  createTeamChat: (memberId: string) =>
+    request<import('../types/teamChat').TeamChatDetail>('/team-chat', {
+      method: 'POST',
+      body: JSON.stringify({ memberId }),
+    }),
+  getTeamChat: (chatId: string) =>
+    request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}`),
+  sendTeamChatMessage: (chatId: string, text: string) =>
+    request<import('../types/teamChat').TeamChatMessage>(`/team-chat/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  inviteTeamChatGuest: (chatId: string, memberId: string, durationMinutes: 15 | 30) =>
+    request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}/guests`, {
+      method: 'POST',
+      body: JSON.stringify({ memberId, durationMinutes }),
+    }),
 };

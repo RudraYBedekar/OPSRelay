@@ -490,6 +490,71 @@ class ApiService {
     if (!USE_CRDB) throw new Error('Access sharing requires CockroachDB');
     return crdbClient.rejectAccessRequest(id);
   }
+
+  public async listWarRooms() {
+    if (!USE_CRDB) return [];
+    return crdbClient.listWarRooms();
+  }
+
+  public async getWarRoom(incidentId: string) {
+    if (!USE_CRDB) throw new Error('Commander requires CockroachDB');
+    return crdbClient.getWarRoom(incidentId);
+  }
+
+  public async launchCommander(incidentId: string) {
+    if (!USE_CRDB) throw new Error('Commander requires CockroachDB');
+    return crdbClient.launchCommander(incidentId);
+  }
+
+  public async recordCommanderAction(incidentId: string, body: { title: string; description?: string; outcome?: string }) {
+    if (!USE_CRDB) throw new Error('Commander requires CockroachDB');
+    return crdbClient.recordCommanderAction(incidentId, body);
+  }
+
+  public async acknowledgeCommander(incidentId: string, memberId: string) {
+    if (!USE_CRDB) throw new Error('Commander requires CockroachDB');
+    return crdbClient.acknowledgeCommander(incidentId, memberId);
+  }
+
+  public async escalateCommander(incidentId: string) {
+    if (!USE_CRDB) throw new Error('Commander requires CockroachDB');
+    return crdbClient.escalateCommander(incidentId);
+  }
+
+  public async resolveCommander(incidentId: string) {
+    if (!USE_CRDB) throw new Error('Commander requires CockroachDB');
+    return crdbClient.resolveCommander(incidentId);
+  }
+
+  public async listTeamChats() {
+    if (!USE_CRDB) return [];
+    return crdbClient.listTeamChats();
+  }
+
+  public async listTeamChatMembers() {
+    if (!USE_CRDB) return [];
+    return crdbClient.listTeamChatMembers();
+  }
+
+  public async createTeamChat(memberId: string) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.createTeamChat(memberId);
+  }
+
+  public async getTeamChat(chatId: string) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.getTeamChat(chatId);
+  }
+
+  public async sendTeamChatMessage(chatId: string, text: string) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.sendTeamChatMessage(chatId, text);
+  }
+
+  public async inviteTeamChatGuest(chatId: string, memberId: string, durationMinutes: 15 | 30) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.inviteTeamChatGuest(chatId, memberId, durationMinutes);
+  }
 }
 
 export const apiService = new ApiService();

@@ -15,6 +15,8 @@ import { ErrorAlert } from './components/common/ErrorAlert';
 import { AuthGate } from './components/auth/AuthGate';
 import { AccessPanel } from './components/access/AccessPanel';
 import { SendToEmployeePanel } from './components/share/SendToEmployeePanel';
+import { WarRoomPanel } from './components/commander/WarRoomPanel';
+import { TeamChatPanel } from './components/chat/TeamChatPanel';
 import { useToast } from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { firstName } from './utils/avatar';
@@ -50,6 +52,14 @@ const PAGE: Record<NavTab, { title: string; description: string }> = {
   tasks: {
     title: 'Task board',
     description: 'Track action items across active incidents.',
+  },
+  commander: {
+    title: 'Incident Commander',
+    description: 'Autonomous AI war rooms for critical incidents — expert ranking, SLA, escalation, and replay.',
+  },
+  chat: {
+    title: 'Team chat',
+    description: 'Direct messages between members — invite a third person for 15 or 30 minutes.',
   },
 };
 
@@ -182,13 +192,18 @@ export const App: React.FC = () => {
       await refreshTasks();
       await loadDashboardData({ silent: true });
       setSelectedIncident(saved);
-      setActiveTab('dashboard');
-      toast(
-        shareWithMemberId
-          ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
-          : `Incident ${saved.id} saved`,
-        'success',
-      );
+      if (saved.severity === 'SEV-0' || saved.severity === 'SEV-1') {
+        setActiveTab('commander');
+        toast(`Incident ${saved.id} saved — Commander activated`, 'success');
+      } else {
+        setActiveTab('dashboard');
+        toast(
+          shareWithMemberId
+            ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
+            : `Incident ${saved.id} saved`,
+          'success',
+        );
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
@@ -202,12 +217,17 @@ export const App: React.FC = () => {
       await refreshIncidents(saved);
       await refreshTasks();
       await loadDashboardData({ silent: true });
-      toast(
-        shareWithMemberId
-          ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
-          : `Incident ${saved.id} saved — check Tasks tab`,
-        'success',
-      );
+      if (saved.severity === 'SEV-0' || saved.severity === 'SEV-1') {
+        setActiveTab('commander');
+        toast(`Incident ${saved.id} saved — Commander auto-launched`, 'success');
+      } else {
+        toast(
+          shareWithMemberId
+            ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
+            : `Incident ${saved.id} saved — check Tasks tab`,
+          'success',
+        );
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
@@ -433,6 +453,23 @@ export const App: React.FC = () => {
               incidents={incidents}
               onUpdateTaskStatus={handleUpdateTaskStatus}
               onInspectIncident={handleInspectIncidentById}
+            />
+          )}
+
+          {activeTab === 'commander' && (
+            <WarRoomPanel
+              incidents={incidents}
+              memberId={user?.memberId}
+              userName={displayName}
+              onRefreshIncidents={() => void loadDashboardData({ silent: true })}
+              onInspectIncident={handleInspectIncidentById}
+            />
+          )}
+
+          {activeTab === 'chat' && (
+            <TeamChatPanel
+              memberId={user?.memberId}
+              userName={displayName}
             />
           )}
         </>

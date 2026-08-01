@@ -142,6 +142,171 @@ export async function generateAgentResponse(
   return parseNovaTextResponse(result);
 }
 
+const COMMANDER_PROMPT = `You are OpsRelay Incident Commander, an autonomous AI that triages critical production incidents.
+
+Given incident details, similar past incidents, and ranked on-call experts, produce structured JSON ONLY (no markdown fences):
+{
+  "impactAssessment": "2 sentences on user/business impact",
+  "technologies": ["tech1", "tech2"],
+  "affectedServices": ["service names"],
+  "investigationTasks": [
+    { "title": "action-oriented task", "priority": "CRITICAL"|"HIGH"|"MEDIUM", "rationale": "why this task" }
+  ],
+  "recommendedActions": ["specific immediate steps"],
+  "confidenceScore": number (70-98),
+  "reasoningSummary": "1-2 sentences explaining the recommendation confidence"
+}`;
+
+export interface CommanderAnalysisInput {
+  incident: Record<string, unknown>;
+  similarIncidents: Array<{
+    id: string;
+    title: string;
+    service: string;
+    similarityScore: number;
+    keyTakeaway: string;
+  }>;
+  expertCandidates: Array<{
+    name: string;
+    memberId: string;
+    score: number;
+    skills: string[];
+    factors: Record<string, unknown>;
+  }>;
+}
+
+export interface CommanderAnalysisResult {
+  impactAssessment: string;
+  technologies: string[];
+  affectedServices: string[];
+  investigationTasks: Array<{ title: string; priority: string; rationale: string }>;
+  recommendedActions: string[];
+  confidenceScore: number;
+  reasoningSummary: string;
+}
+
+export async function generateCommanderAnalysis(
+  input: CommanderAnalysisInput,
+): Promise<CommanderAnalysisResult> {
+  const contextBlock = JSON.stringify(input, null, 2);
+
+  try {
+    const result = await invokeBedrockModel(bedrockConfig.agentModel, {
+      system: [{ text: COMMANDER_PROMPT }],
+      messages: [
+        {
+          role: 'user',
+          content: [{ text: `Incident commander context:\n${contextBlock}` }],
+        },
+      ],
+      inferenceConfig: { maxTokens: 2048, temperature: 0.2 },
+    });
+
+    const text = parseNovaTextResponse(result);
+    const parsed = parseJsonFromLlm(text) as CommanderAnalysisResult;
+    return {
+      impactAssessment: String(parsed.impactAssessment ?? 'Critical incident under investigation.'),
+      technologies: Array.isArray(parsed.technologies) ? parsed.technologies.map(String) : [],
+      affectedServices: Array.isArray(parsed.affectedServices) ? parsed.affectedServices.map(String) : [],
+      investigationTasks: Array.isArray(parsed.investigationTasks)
+        ? parsed.investigationTasks.map((t) => ({
+            title: String((t as { title?: string }).title ?? 'Investigate root cause'),
+            priority: String((t as { priority?: string }).priority ?? 'HIGH'),
+            rationale: String((t as { rationale?: string }).rationale ?? 'Standard triage'),
+          }))
+        : [],
+      recommendedActions: Array.isArray(parsed.recommendedActions)
+        ? parsed.recommendedActions.map(String)
+        : [],
+      confidenceScore: Number(parsed.confidenceScore) || 82,
+      reasoningSummary: String(parsed.reasoningSummary ?? 'Based on vector memory and expert ranking.'),
+    };
+  } catch {
+    const inc = input.incident;
+    return {
+      impactAssessment: `${inc.severity} incident on ${inc.service} requires immediate investigation.`,
+      technologies: inferTechnologies(String(inc.summary ?? '')),
+      affectedServices: [String(inc.service ?? 'unknown')],
+      investigationTasks: [
+        {
+          title: `Verify ${inc.service} health metrics and error rates`,
+          priority: 'CRITICAL',
+          rationale: 'Baseline service health check',
+        },
+        {
+          title: 'Review recent deploys and config changes',
+          priority: 'HIGH',
+          rationale: 'Common root cause for production incidents',
+        },
+        {
+          title: `Compare with ${input.similarIncidents[0]?.id ?? 'prior'} remediation steps`,
+          priority: 'HIGH',
+          rationale: `Vector match ${input.similarIncidents[0]?.similarityScore ?? 0}%`,
+        },
+      ],
+      recommendedActions: input.similarIncidents[0]?.keyTakeaway
+        ? [input.similarIncidents[0].keyTakeaway]
+        : ['Confirm blast radius and notify stakeholders'],
+      confidenceScore: input.similarIncidents[0]?.similarityScore ?? 75,
+      reasoningSummary: 'Local fallback analysis from vector matches and expert scores.',
+    };
+  }
+}
+
+function inferTechnologies(text: string): string[] {
+  const lower = text.toLowerCase();
+  const techs: string[] = [];
+  const map: Record<string, string> = {
+    cockroach: 'CockroachDB',
+    postgres: 'PostgreSQL',
+    kubernetes: 'Kubernetes',
+    k8s: 'Kubernetes',
+    redis: 'Redis',
+    kafka: 'Kafka',
+    aws: 'AWS',
+    bedrock: 'AWS Bedrock',
+    nginx: 'Nginx',
+    node: 'Node.js',
+  };
+  for (const [key, label] of Object.entries(map)) {
+    if (lower.includes(key)) techs.push(label);
+  }
+  return techs.length > 0 ? techs : ['Distributed systems'];
+}
+
+export async function generateHandoffSummary(context: {
+  incident: Record<string, unknown>;
+  replayEvents: Array<{ title: string; description?: string; eventType: string }>;
+  decisions: Array<{ title: string; confidence: number }>;
+  primaryExpert?: string;
+}): Promise<string> {
+  const contextBlock = JSON.stringify(context, null, 2);
+
+  try {
+    const result = await invokeBedrockModel(bedrockConfig.agentModel, {
+      messages: [
+        {
+          role: 'user',
+          content: [{
+            text: `Write a concise shift handoff summary (4-6 bullet points) for this resolved incident. Include root cause if known, actions taken, and follow-ups.\n\n${contextBlock}`,
+          }],
+        },
+      ],
+      inferenceConfig: { maxTokens: 1024, temperature: 0.3 },
+    });
+    return parseNovaTextResponse(result);
+  } catch {
+    const inc = context.incident;
+    return [
+      `**${inc.id}** (${inc.severity}) — ${inc.title}`,
+      `Service: ${inc.service}. Status: ${inc.status}.`,
+      context.primaryExpert ? `Lead: ${context.primaryExpert}.` : '',
+      `${context.replayEvents.length} commander events tracked.`,
+      `${context.decisions.length} AI decisions logged with confidence scoring.`,
+    ].filter(Boolean).join('\n');
+  }
+}
+
 export async function testBedrockConnection(): Promise<{
   llm: boolean;
   agent: boolean;

@@ -1,0 +1,152 @@
+import { Router } from 'express';
+import type { AuthUser } from '../services/authService.js';
+import {
+  listChatsForUser,
+  listChatMembers,
+  getOrCreateChat,
+  getChatDetail,
+  sendChatMessage,
+  inviteGuestToChat,
+  type GuestDuration,
+} from '../services/teamChatService.js';
+import { isAuthEnabled } from '../config/auth.js';
+
+export const teamChatRouter = Router();
+
+function requireUser(req: { user?: AuthUser }): AuthUser {
+  if (!isAuthEnabled() || !req.user) {
+    throw Object.assign(new Error('Authentication required'), { status: 401 });
+  }
+  return req.user;
+}
+
+teamChatRouter.get('/members', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    res.json(await listChatMembers(user.memberId));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.get('/', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    res.json(await listChatsForUser(user));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.post('/', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    const { memberId } = req.body as { memberId?: string };
+    if (!memberId?.trim()) {
+      res.status(400).json({ error: 'Recipient member ID is required' });
+      return;
+    }
+    res.json(await getOrCreateChat(user, memberId));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && (
+      err.message.includes('Invalid') ||
+      err.message.includes('No user') ||
+      err.message.includes('cannot start')
+    )) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.get('/:chatId', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    res.json(await getChatDetail(req.params.chatId, user.memberId));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && err.message.includes('not found')) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.post('/:chatId/messages', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    const { text } = req.body as { text?: string };
+    if (!text?.trim()) {
+      res.status(400).json({ error: 'Message text is required' });
+      return;
+    }
+    const message = await sendChatMessage(req.params.chatId, user, text);
+    res.json(message);
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && (
+      err.message.includes('not found') ||
+      err.message.includes('access') ||
+      err.message.includes('empty')
+    )) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.post('/:chatId/guests', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    const { memberId, durationMinutes } = req.body as {
+      memberId?: string;
+      durationMinutes?: GuestDuration;
+    };
+    if (!memberId?.trim()) {
+      res.status(400).json({ error: 'Guest member ID is required' });
+      return;
+    }
+    if (durationMinutes !== 15 && durationMinutes !== 30) {
+      res.status(400).json({ error: 'durationMinutes must be 15 or 30' });
+      return;
+    }
+    res.json(await inviteGuestToChat(req.params.chatId, user, memberId, durationMinutes));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && (
+      err.message.includes('Invalid') ||
+      err.message.includes('No user') ||
+      err.message.includes('Only chat') ||
+      err.message.includes('Guest must') ||
+      err.message.includes('already')
+    )) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});

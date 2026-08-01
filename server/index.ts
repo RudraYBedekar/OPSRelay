@@ -14,6 +14,10 @@ import { agentRouter } from './routes/agent.js';
 import { sampleLogsRouter } from './routes/sampleLogs.js';
 import { authRouter } from './routes/auth.js';
 import { accessRouter } from './routes/access.js';
+import { commanderRouter } from './routes/commander.js';
+import { teamChatRouter } from './routes/teamChat.js';
+import { migrateCommanderSchema } from './services/commanderMigration.js';
+import { migrateTeamChatSchema } from './services/teamChatMigration.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
 import { isAuthEnabled } from './config/auth.js';
 import { migrateSecureAuthSchema } from './services/authMigration.js';
@@ -101,6 +105,8 @@ protectedApi.use('/memory', memoryRouter);
 protectedApi.use('/extract', extractRouter);
 protectedApi.use('/agent', agentRouter);
 protectedApi.use('/sample-logs', sampleLogsRouter);
+protectedApi.use('/commander', commanderRouter);
+protectedApi.use('/team-chat', teamChatRouter);
 
 app.use('/api', protectedApi);
 
@@ -114,6 +120,20 @@ app.listen(PORT, async () => {
   console.log(`Auth: ${isAuthEnabled() ? 'ENABLED (JWT)' : 'disabled'}`);
   console.log(`Bedrock: ${isBedrockConfigured() ? 'ENABLED' : 'disabled (fallback mode)'}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
+
+  try {
+    await migrateCommanderSchema();
+    console.log('Commander schema ready (sessions, decisions, SLA, replay)');
+  } catch (err) {
+    console.warn('Commander schema migration skipped:', err instanceof Error ? err.message : err);
+  }
+
+  try {
+    await migrateTeamChatSchema();
+    console.log('Team chat schema ready (messages, timed guests)');
+  } catch (err) {
+    console.warn('Team chat schema migration skipped:', err instanceof Error ? err.message : err);
+  }
 
   if (isAuthEnabled()) {
     try {
