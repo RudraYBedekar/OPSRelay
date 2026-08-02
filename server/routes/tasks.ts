@@ -8,9 +8,8 @@ import {
   type IncidentWithTasks,
 } from '../utils/incidentTasks.js';
 import {
-  canViewIncident,
+  canEditIncident,
   filterIncidentsForUser,
-  getGrantedOwnerMemberIds,
 } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
 
@@ -48,8 +47,7 @@ tasksRouter.patch('/:taskId/status', async (req, res, next) => {
       if (idx >= 0) {
         const incident = row.data as IncidentWithTasks & { ownerMemberId?: string };
         if (isAuthEnabled() && req.user) {
-          const granted = new Set(await getGrantedOwnerMemberIds(req.user.memberId));
-          if (!canViewIncident(incident, req.user, granted)) {
+          if (!canEditIncident(incident, req.user)) {
             res.status(404).json({ error: `Task ${taskId} not found` });
             return;
           }
@@ -78,8 +76,7 @@ tasksRouter.patch('/:taskId/status', async (req, res, next) => {
 
       const incident = { ...row.data, id: row.data.id ?? row.id };
       if (isAuthEnabled() && req.user) {
-        const granted = new Set(await getGrantedOwnerMemberIds(req.user.memberId));
-        if (!canViewIncident(incident, req.user, granted)) {
+        if (!canEditIncident(incident, req.user)) {
           res.status(404).json({ error: `Task ${taskId} not found` });
           return;
         }

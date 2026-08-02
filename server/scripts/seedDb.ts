@@ -33,6 +33,18 @@ async function ensureRudraDatabase(adminClient: pg.PoolClient) {
 }
 
 async function main() {
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
+    console.error(
+      'Refusing to run destructive seed. Set ALLOW_DESTRUCTIVE_SEED=true to drop and recreate demo tables.',
+    );
+    process.exit(1);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Refusing to run destructive seed in production.');
+    process.exit(1);
+  }
+
   // Step 1: connect to defaultdb and create Rudra if needed
   const adminPool = new pg.Pool({ connectionString: withDatabase(baseUrl, 'defaultdb') });
   const adminClient = await adminPool.connect();

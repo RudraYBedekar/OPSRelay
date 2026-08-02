@@ -9,16 +9,14 @@ import {
   PanelLeftClose,
   PanelLeft,
   Send,
-  Radio,
   MessagesSquare,
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'intake' | 'share' | 'ask' | 'tasks' | 'commander' | 'chat';
+export type NavTab = 'dashboard' | 'intake' | 'share' | 'ask' | 'tasks' | 'chat';
 
 const NAV: { id: NavTab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'intake', label: 'New Incident', icon: FilePlus2 },
-  { id: 'commander', label: 'Commander', icon: Radio },
   { id: 'chat', label: 'Team Chat', icon: MessagesSquare },
   { id: 'share', label: 'Send to employee', icon: Send },
   { id: 'ask', label: 'Ask AI', icon: MessageSquare },

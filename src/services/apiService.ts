@@ -120,9 +120,19 @@ class ApiService {
   }
 
   // Save or update an incident
-  public async saveIncident(incident: Incident, shareWithMemberId?: string): Promise<Incident> {
+  public async saveIncident(
+    incident: Incident,
+    shareWithMemberId?: string,
+    options?: { forceDistinct?: boolean; overrideAlertId?: string },
+  ): Promise<Incident> {
     await this.checkError();
-    if (USE_CRDB) return crdbClient.saveIncident(incident, shareWithMemberId);
+    if (USE_CRDB) {
+      return crdbClient.saveIncident(incident, {
+        shareWithMemberId,
+        forceDistinct: options?.forceDistinct,
+        overrideAlertId: options?.overrideAlertId,
+      });
+    }
     const toSave = shareWithMemberId
       ? {
           ...incident,
@@ -554,6 +564,16 @@ class ApiService {
   public async inviteTeamChatGuest(chatId: string, memberId: string, durationMinutes: 15 | 30) {
     if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
     return crdbClient.inviteTeamChatGuest(chatId, memberId, durationMinutes);
+  }
+
+  public async getAlertStatsForIncident(incidentId: string) {
+    if (!USE_CRDB) return { suppressedCount: 0, summaryMessage: null };
+    return crdbClient.getAlertStatsForIncident(incidentId);
+  }
+
+  public async overrideAlertDistinct(alertId: string) {
+    if (!USE_CRDB) throw new Error('Alert fatigue requires CockroachDB');
+    return crdbClient.overrideAlertDistinct(alertId);
   }
 }
 

@@ -15,8 +15,8 @@ import { ErrorAlert } from './components/common/ErrorAlert';
 import { AuthGate } from './components/auth/AuthGate';
 import { AccessPanel } from './components/access/AccessPanel';
 import { SendToEmployeePanel } from './components/share/SendToEmployeePanel';
-import { WarRoomPanel } from './components/commander/WarRoomPanel';
 import { TeamChatPanel } from './components/chat/TeamChatPanel';
+import { AlertSuppressedBanner } from './components/alerts/AlertSuppressedBanner';
 import { useToast } from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { firstName } from './utils/avatar';
@@ -30,6 +30,7 @@ import type {
   TaskStatus,
 } from './types/incident';
 import { apiService } from './services/apiService';
+import { AlertSuppressedError, type AlertSuppressedResponse } from './types/alertFatigue';
 import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents, buildLiveHandoffSummaries } from './utils/dashboardMetrics';
 
 const PAGE: Record<NavTab, { title: string; description: string }> = {
@@ -52,10 +53,6 @@ const PAGE: Record<NavTab, { title: string; description: string }> = {
   tasks: {
     title: 'Task board',
     description: 'Track action items across active incidents.',
-  },
-  commander: {
-    title: 'Incident Commander',
-    description: 'Autonomous AI war rooms for critical incidents — expert ranking, SLA, escalation, and replay.',
   },
   chat: {
     title: 'Team chat',
@@ -90,6 +87,12 @@ export const App: React.FC = () => {
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [accessPanelOpen, setAccessPanelOpen] = useState(false);
+  const [alertSuppression, setAlertSuppression] = useState<AlertSuppressedResponse | null>(null);
+  const [pendingSave, setPendingSave] = useState<{
+    incident: Incident;
+    shareWithMemberId?: string;
+  } | null>(null);
+  const [forceSaveBusy, setForceSaveBusy] = useState(false);
 
   const intakeStep: 1 | 2 | 3 = extractionResult ? 3 : isExtracting ? 2 : 1;
 
@@ -185,6 +188,23 @@ export const App: React.FC = () => {
     }
   };
 
+  const completeIncidentSave = async (
+    saved: Incident,
+    shareWithMemberId?: string,
+  ) => {
+    await refreshIncidents(saved);
+    await refreshTasks();
+    await loadDashboardData({ silent: true });
+    setAlertSuppression(null);
+    setPendingSave(null);
+    toast(
+      shareWithMemberId
+        ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
+        : `Incident ${saved.id} saved`,
+      'success',
+    );
+  };
+
   const handleSaveExtractedIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
     try {
       const saved = await apiService.saveIncident(newIncident, shareWithMemberId);
@@ -192,19 +212,22 @@ export const App: React.FC = () => {
       await refreshTasks();
       await loadDashboardData({ silent: true });
       setSelectedIncident(saved);
-      if (saved.severity === 'SEV-0' || saved.severity === 'SEV-1') {
-        setActiveTab('commander');
-        toast(`Incident ${saved.id} saved — Commander activated`, 'success');
-      } else {
-        setActiveTab('dashboard');
-        toast(
-          shareWithMemberId
-            ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
-            : `Incident ${saved.id} saved`,
-          'success',
-        );
-      }
+      setActiveTab('dashboard');
+      setAlertSuppression(null);
+      setPendingSave(null);
+      toast(
+        shareWithMemberId
+          ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
+          : `Incident ${saved.id} saved`,
+        'success',
+      );
     } catch (err: unknown) {
+      if (err instanceof AlertSuppressedError) {
+        setAlertSuppression(err.payload);
+        setPendingSave({ incident: newIncident, shareWithMemberId });
+        toast('Duplicate alert suppressed', 'error');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
       throw err;
@@ -214,24 +237,37 @@ export const App: React.FC = () => {
   const handleQuickSaveIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
     try {
       const saved = await apiService.saveIncident(newIncident, shareWithMemberId);
-      await refreshIncidents(saved);
-      await refreshTasks();
-      await loadDashboardData({ silent: true });
-      if (saved.severity === 'SEV-0' || saved.severity === 'SEV-1') {
-        setActiveTab('commander');
-        toast(`Incident ${saved.id} saved — Commander auto-launched`, 'success');
-      } else {
-        toast(
-          shareWithMemberId
-            ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
-            : `Incident ${saved.id} saved — check Tasks tab`,
-          'success',
-        );
-      }
+      await completeIncidentSave(saved, shareWithMemberId);
     } catch (err: unknown) {
+      if (err instanceof AlertSuppressedError) {
+        setAlertSuppression(err.payload);
+        setPendingSave({ incident: newIncident, shareWithMemberId });
+        toast('Duplicate alert suppressed', 'error');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
       throw err;
+    }
+  };
+
+  const handleForceDistinctSave = async () => {
+    if (!pendingSave || !alertSuppression?.matchedAlert?.id) return;
+    setForceSaveBusy(true);
+    try {
+      await apiService.overrideAlertDistinct(alertSuppression.matchedAlert.id);
+      const saved = await apiService.saveIncident(
+        pendingSave.incident,
+        pendingSave.shareWithMemberId,
+        { forceDistinct: true, overrideAlertId: alertSuppression.matchedAlert.id },
+      );
+      await completeIncidentSave(saved, pendingSave.shareWithMemberId);
+      setActiveTab('dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+      toast('Save failed', 'error');
+    } finally {
+      setForceSaveBusy(false);
     }
   };
 
@@ -352,6 +388,17 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {alertSuppression && (
+        <div className="mb-5">
+          <AlertSuppressedBanner
+            suppression={alertSuppression}
+            onCreateAnyway={() => void handleForceDistinctSave()}
+            onDismiss={() => { setAlertSuppression(null); setPendingSave(null); }}
+            busy={forceSaveBusy}
+          />
+        </div>
+      )}
+
       {isLoading && !error ? (
         <LoadingSkeleton type="table" />
       ) : selectedIncident ? (
@@ -452,16 +499,6 @@ export const App: React.FC = () => {
               tasks={tasks}
               incidents={incidents}
               onUpdateTaskStatus={handleUpdateTaskStatus}
-              onInspectIncident={handleInspectIncidentById}
-            />
-          )}
-
-          {activeTab === 'commander' && (
-            <WarRoomPanel
-              incidents={incidents}
-              memberId={user?.memberId}
-              userName={displayName}
-              onRefreshIncidents={() => void loadDashboardData({ silent: true })}
               onInspectIncident={handleInspectIncidentById}
             />
           )}

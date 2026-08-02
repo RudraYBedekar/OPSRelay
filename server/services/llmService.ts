@@ -1,6 +1,8 @@
 import { bedrockConfig } from '../config/bedrock.js';
 import { invokeBedrockModel, parseNovaTextResponse } from './bedrockClient.js';
 import { buildExecutiveSummary, polishSummary } from '../utils/summaryFormat.js';
+import { parseExtractionResult } from '../schemas/extraction.js';
+import { scanAndRedactSecrets } from '../utils/redactSecrets.js';
 
 const EXTRACTION_PROMPT = `You are OpsRelay, an AI incident-response system for on-call SRE teams.
 
@@ -59,14 +61,16 @@ function parseJsonFromLlm(text: string): unknown {
 }
 
 export async function extractIncidentFromNotes(rawNotes: string): Promise<unknown> {
+  const { redactedText } = scanAndRedactSecrets(rawNotes);
+
   const result = (await invokeBedrockModel(bedrockConfig.llmModel, {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 4096,
-    temperature: 0.2,
+    temperature: 0,
     messages: [
       {
         role: 'user',
-        content: EXTRACTION_PROMPT + rawNotes,
+        content: EXTRACTION_PROMPT + redactedText,
       },
     ],
   })) as { content?: Array<{ type: string; text?: string }> };
@@ -74,35 +78,26 @@ export async function extractIncidentFromNotes(rawNotes: string): Promise<unknow
   const text = result.content?.find((b) => b.type === 'text')?.text;
   if (!text) throw new Error('Bedrock returned empty extraction response');
 
-  const parsed = parseJsonFromLlm(text) as Record<string, unknown>;
+  const parsed = parseJsonFromLlm(text);
+  const validated = parseExtractionResult(parsed);
   const now = new Date().toISOString();
 
-  const service = String(parsed.service ?? 'unknown-service');
-  const component = String(parsed.component ?? 'unknown-component');
-  const severity = String(parsed.severity ?? 'SEV-2');
   const fallbackSummary = buildExecutiveSummary({
-    service,
-    component,
-    severity,
-    rawNotes,
+    service: validated.service,
+    component: validated.component,
+    severity: validated.severity,
+    rawNotes: redactedText,
   });
 
-  parsed.summary = polishSummary(parsed.summary, fallbackSummary);
-
-  if (typeof parsed.severityReason === 'string') {
-    parsed.severityReason = parsed.severityReason.trim();
-  }
-
-  if (Array.isArray(parsed.tasks)) {
-    parsed.tasks = parsed.tasks.map((t: Record<string, unknown>) => ({
+  return {
+    ...validated,
+    summary: polishSummary(validated.summary, fallbackSummary),
+    severityReason: validated.severityReason?.trim() ?? '',
+    tasks: validated.tasks.map((t) => ({
       ...t,
       createdAt: t.createdAt ?? now,
-      assignee: t.assignee ?? 'Unassigned (Ops Team)',
-      status: t.status ?? 'TODO',
-    }));
-  }
-
-  return parsed;
+    })),
+  };
 }
 
 export async function generateAgentResponse(

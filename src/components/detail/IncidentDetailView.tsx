@@ -3,6 +3,7 @@ import type { Incident, IncidentStatus } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { StatusBadge } from '../common/StatusBadge';
 import { MemorySourceCard } from '../agent/MemorySourceCard';
+import { AlertFatigueCard } from '../alerts/AlertFatigueCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Server, User, Bot } from 'lucide-react';
 import { timeAgo, formatDate } from '../../utils/formatters';
@@ -70,6 +71,8 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
           </select>
         </div>
       </div>
+
+      <AlertFatigueCard incidentId={incident.id} />
 
       {incident.timeline.length > 0 && (
         <div className="ops-card p-5 md:p-6">

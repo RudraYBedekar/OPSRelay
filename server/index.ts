@@ -14,10 +14,11 @@ import { agentRouter } from './routes/agent.js';
 import { sampleLogsRouter } from './routes/sampleLogs.js';
 import { authRouter } from './routes/auth.js';
 import { accessRouter } from './routes/access.js';
-import { commanderRouter } from './routes/commander.js';
+import { alertsRouter } from './routes/alerts.js';
 import { teamChatRouter } from './routes/teamChat.js';
-import { migrateCommanderSchema } from './services/commanderMigration.js';
 import { migrateTeamChatSchema } from './services/teamChatMigration.js';
+import { migrateAlertFatigueSchema } from './services/alertFatigueMigration.js';
+import { migrateEmbeddingProvenanceSchema } from './services/embeddingProvenanceMigration.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
 import { isAuthEnabled } from './config/auth.js';
 import { migrateSecureAuthSchema } from './services/authMigration.js';
@@ -26,6 +27,7 @@ import { getEmbeddingCount } from './services/vectorService.js';
 import { testBedrockConnection } from './services/llmService.js';
 import { securityHeaders } from './middleware/security.js';
 import { requireAuth } from './middleware/auth.js';
+import { sanitizeErrorForClient, logServerError } from './utils/sanitizeError.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3001);
@@ -105,14 +107,15 @@ protectedApi.use('/memory', memoryRouter);
 protectedApi.use('/extract', extractRouter);
 protectedApi.use('/agent', agentRouter);
 protectedApi.use('/sample-logs', sampleLogsRouter);
-protectedApi.use('/commander', commanderRouter);
 protectedApi.use('/team-chat', teamChatRouter);
+protectedApi.use('/alerts', alertsRouter);
 
 app.use('/api', protectedApi);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  logServerError(err);
+  const { status, message, code } = sanitizeErrorForClient(err);
+  res.status(status).json({ error: message, ...(code ? { code } : {}) });
 });
 
 app.listen(PORT, async () => {
@@ -122,10 +125,10 @@ app.listen(PORT, async () => {
   console.log(`Health: http://localhost:${PORT}/api/health`);
 
   try {
-    await migrateCommanderSchema();
-    console.log('Commander schema ready (sessions, decisions, SLA, replay)');
+    await migrateEmbeddingProvenanceSchema();
+    console.log('Embedding provenance columns ready');
   } catch (err) {
-    console.warn('Commander schema migration skipped:', err instanceof Error ? err.message : err);
+    console.warn('Embedding provenance migration skipped:', err instanceof Error ? err.message : err);
   }
 
   try {
@@ -133,6 +136,13 @@ app.listen(PORT, async () => {
     console.log('Team chat schema ready (messages, timed guests)');
   } catch (err) {
     console.warn('Team chat schema migration skipped:', err instanceof Error ? err.message : err);
+  }
+
+  try {
+    await migrateAlertFatigueSchema();
+    console.log('Alert fatigue schema ready (alert_embeddings + vector index)');
+  } catch (err) {
+    console.warn('Alert fatigue schema migration skipped:', err instanceof Error ? err.message : err);
   }
 
   if (isAuthEnabled()) {

@@ -90,6 +90,31 @@ export function canViewIncident(
   return false;
 }
 
+/** Only the incident owner (or admin) may edit incidents and manage tasks. */
+export function canEditIncident(
+  incident: { ownerMemberId?: string },
+  viewer: AuthUser | undefined,
+): boolean {
+  if (!isAuthEnabled() || !viewer) return true;
+
+  const owner = incident.ownerMemberId;
+  if (!owner) return viewer.role === 'admin';
+  if (viewer.role === 'admin') return true;
+  return owner === viewer.memberId;
+}
+
+export function canManageTasks(
+  incident: { ownerMemberId?: string },
+  viewer: AuthUser | undefined,
+): boolean {
+  return canEditIncident(incident, viewer);
+}
+
+export function canReindexCorpus(viewer: AuthUser | undefined): boolean {
+  if (!isAuthEnabled() || !viewer) return true;
+  return viewer.role === 'admin';
+}
+
 export function normalizeMemberId(value: string): string {
   return value.trim().toUpperCase();
 }

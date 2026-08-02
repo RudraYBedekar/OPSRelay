@@ -9,15 +9,14 @@ export interface QuickIncidentInput {
   leadSRE?: string;
 }
 
-/** Build a minimal incident document from a title and a few lines of logs. */
+/** Build a minimal incident document from a title and a few lines of logs. ID is assigned by the server on save. */
 export function buildQuickIncident(input: QuickIncidentInput): Incident {
-  const id = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
   const now = new Date();
   const notes = input.notes.trim();
   const firstLine = notes.split('\n').find((l) => l.trim()) ?? input.title.trim();
 
   return withDefaultTasks({
-    id,
+    id: 'pending',
     title: input.title.trim(),
     service: input.service?.trim() || 'general',
     component: 'manual-intake',

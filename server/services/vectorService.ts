@@ -1,6 +1,8 @@
-import { query } from '../db.js';
+import { query, withTransaction, queryWithClient } from '../db.js';
 import { bedrockConfig } from '../config/bedrock.js';
-import { embedText, vectorToSql } from './embedService.js';
+import { embedText, vectorToSql, getEmbedMode } from './embedService.js';
+import { scanAndRedactSecrets } from '../utils/redactSecrets.js';
+import { SIMILARITY_THRESHOLD } from '../utils/embeddingValidation.js';
 
 export interface VectorSearchHit {
   incidentId: string;
@@ -24,11 +26,13 @@ export interface IncidentRecord {
   rawNotes?: string;
 }
 
-export async function indexIncident(incident: IncidentRecord): Promise<number> {
-  await query('DELETE FROM incident_embeddings WHERE incident_id = $1', [incident.id]);
+function redactForEmbedding(text: string): string {
+  return scanAndRedactSecrets(text).redactedText;
+}
 
+export async function indexIncident(incident: IncidentRecord): Promise<number> {
   const summaryChunk = `${incident.title}. ${incident.summary}`;
-  const notesChunk = incident.rawNotes?.slice(0, 4000);
+  const notesChunk = incident.rawNotes ? redactForEmbedding(incident.rawNotes.slice(0, 4000)) : undefined;
   const fixChunks = incident.fixesApplied ?? [];
 
   const toEmbed: Array<{ type: string; text: string; service: string }> = [
@@ -39,72 +43,85 @@ export async function indexIncident(incident: IncidentRecord): Promise<number> {
     toEmbed.push({ type: 'fix', text: fix, service: incident.service });
   }
 
-  let count = 0;
-  for (const chunk of toEmbed) {
-    const embedding = await embedText(chunk.text);
-    await query(
-      `INSERT INTO incident_embeddings (incident_id, chunk_type, content, service, embedding)
-       VALUES ($1, $2, $3, $4, $5::VECTOR)`,
-      [
-        incident.id,
-        chunk.type,
-        chunk.text.slice(0, 8000),
-        chunk.service,
-        vectorToSql(embedding),
-      ],
-    );
-    count++;
-  }
+  const embedMode = getEmbedMode();
 
-  return count;
+  return withTransaction(async (client) => {
+    await queryWithClient(client, 'DELETE FROM incident_embeddings WHERE incident_id = $1', [incident.id]);
+
+    let count = 0;
+    for (const chunk of toEmbed) {
+      const { values, meta } = await embedText(chunk.text);
+      await queryWithClient(
+        client,
+        `INSERT INTO incident_embeddings (incident_id, chunk_type, content, service, embedding, embedding_provider, embedding_model, embedding_dimensions)
+         VALUES ($1, $2, $3, $4, $5::VECTOR, $6, $7, $8)`,
+        [
+          incident.id,
+          chunk.type,
+          chunk.text.slice(0, 8000),
+          chunk.service,
+          vectorToSql(values),
+          meta.provider,
+          meta.model,
+          meta.dimensions,
+        ],
+      );
+      count++;
+    }
+
+    if (count === 0) {
+      throw new Error(`No embedding chunks produced for ${incident.id} (${embedMode})`);
+    }
+
+    return count;
+  });
 }
 
 export async function searchSimilarIncidents(
   queryText: string,
   limit = 5,
   serviceFilter?: string,
+  options?: { excludeIncidentId?: string; allowedIncidentIds?: Set<string> },
 ): Promise<VectorSearchHit[]> {
-  const queryEmbedding = await embedText(queryText);
-  const vectorLiteral = vectorToSql(queryEmbedding);
+  const { values, meta } = await embedText(queryText);
+  const vectorLiteral = vectorToSql(values);
 
-  const rows = serviceFilter
-    ? await query<{
-        incident_id: string;
-        chunk_type: string;
-        content: string;
-        service: string;
-        distance: number;
-      }>(
-        `SELECT incident_id, chunk_type, content, service,
-                (embedding <=> $1::VECTOR) AS distance
-         FROM incident_embeddings
-         WHERE service = $2
-         ORDER BY embedding <=> $1::VECTOR
-         LIMIT $3`,
-        [vectorLiteral, serviceFilter, limit * 2],
-      )
-    : await query<{
-        incident_id: string;
-        chunk_type: string;
-        content: string;
-        service: string;
-        distance: number;
-      }>(
-        `SELECT incident_id, chunk_type, content, service,
-                (embedding <=> $1::VECTOR) AS distance
-         FROM incident_embeddings
-         ORDER BY embedding <=> $1::VECTOR
-         LIMIT $2`,
-        [vectorLiteral, limit * 2],
-      );
+  const params: unknown[] = [vectorLiteral, meta.provider, meta.model];
+  let sql = `
+    SELECT incident_id, chunk_type, content, service,
+           (embedding <=> $1::VECTOR) AS distance
+    FROM incident_embeddings
+    WHERE (embedding_provider = $2 OR embedding_provider IS NULL)
+      AND (embedding_model = $3 OR embedding_model IS NULL)`;
+
+  if (serviceFilter) {
+    params.push(serviceFilter);
+    sql += ` AND service = $${params.length}`;
+  }
+
+  params.push(limit * 3);
+  sql += ` ORDER BY embedding <=> $1::VECTOR LIMIT $${params.length}`;
+
+  const rows = await query<{
+    incident_id: string;
+    chunk_type: string;
+    content: string;
+    service: string;
+    distance: number;
+  }>(sql, params);
 
   const seen = new Set<string>();
   const hits: VectorSearchHit[] = [];
 
   for (const row of rows) {
+    if (options?.excludeIncidentId && row.incident_id === options.excludeIncidentId) continue;
+    if (options?.allowedIncidentIds && !options.allowedIncidentIds.has(row.incident_id)) continue;
     if (seen.has(row.incident_id)) continue;
-    seen.add(row.incident_id);
+
     const similarityScore = Math.round(Math.max(0, (1 - row.distance) * 100));
+    if (similarityScore < SIMILARITY_THRESHOLD) continue;
+
+    seen.add(row.incident_id);
     hits.push({
       incidentId: row.incident_id,
       chunkType: row.chunk_type,
@@ -145,7 +162,7 @@ export function searchIncidentsInCorpus(
   limit = 5,
 ): VectorSearchHit[] {
   const lower = queryText.toLowerCase();
-  const idFromQuery = queryText.match(/\bINC-\d+\b/i)?.[0]?.toUpperCase();
+  const idFromQuery = queryText.match(/\bINC-[A-Z0-9]+\b/i)?.[0]?.toUpperCase();
   const stopWords = new Set([
     'inc', 'the', 'this', 'that', 'check', 'about', 'tell', 'what', 'incident',
     'please', 'show', 'give', 'info', 'details', 'status', 'with', 'from', 'have',
@@ -188,7 +205,7 @@ export function searchIncidentsInCorpus(
         similarityScore: Math.min(score, 100),
       };
     })
-    .filter((h) => h.similarityScore > 0)
+    .filter((h) => h.similarityScore >= SIMILARITY_THRESHOLD)
     .sort((a, b) => b.similarityScore - a.similarityScore)
     .slice(0, limit);
 }
@@ -231,7 +248,7 @@ export function keywordSearchFallback(
         similarityScore: Math.min(score, 98),
       };
     })
-    .filter((h) => h.similarityScore > 0)
+    .filter((h) => h.similarityScore >= SIMILARITY_THRESHOLD)
     .sort((a, b) => b.similarityScore - a.similarityScore)
     .slice(0, limit);
 }

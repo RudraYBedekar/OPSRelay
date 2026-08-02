@@ -220,6 +220,34 @@ Use `VITE_USE_CRDB=true` for the full experience with persistent cloud storage.
 
 ---
 
+## Security (August 2026 hardening)
+
+Recent changes address the hackathon readiness review:
+
+| Area | Implementation |
+|------|----------------|
+| **Authorization** | `canEditIncident` — only owners/admins may mutate incidents or tasks; viewers are read-only |
+| **Incident IDs** | Server-generated on `POST /incidents`; client IDs ignored |
+| **AI extraction** | Zod schema validation; malformed Bedrock JSON returns `422 analysis_failed` |
+| **Secrets** | AWS keys/private keys blocked; bearer tokens/JWTs redacted before Bedrock/embed |
+| **Embeddings** | 1024-dim + finite validation; Titan/local spaces not mixed in production |
+| **Vector search** | Auth-scoped results, similarity threshold (55%), embedding provenance columns |
+| **Re-index** | `POST /agent/index` restricted to admin role |
+| **Seeding** | `db:seed` requires `ALLOW_DESTRUCTIVE_SEED=true` and refuses production |
+| **Errors** | Sanitized public error messages (no stack/SQL leaks) |
+| **Tests** | `npm run test` — auth, redaction, embedding, schema unit tests |
+| **License** | MIT (`LICENSE`) |
+
+**Still recommended before public demo:** HTTPS on EC2, rotate demo credentials, CockroachDB Managed MCP read-only investigator, full versioned migration tool, agent-run audit table.
+
+Destructive seed example:
+
+```bash
+ALLOW_DESTRUCTIVE_SEED=true npm run db:seed
+```
+
+---
+
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript, Tailwind CSS, Vite

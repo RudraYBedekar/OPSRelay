@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { runAgent, getAgentStatus } from '../services/agentService.js';
 import { embedAllIncidentsFromDb, getEmbeddingCount } from '../services/vectorService.js';
 import { saveAgentChatToMemory } from '../services/chatPersistence.js';
+import { canReindexCorpus } from '../services/incidentAccessService.js';
+import { isAuthEnabled } from '../config/auth.js';
 
 export const agentRouter = Router();
 
@@ -13,8 +15,12 @@ agentRouter.get('/status', async (_req, res, next) => {
   }
 });
 
-agentRouter.post('/index', async (_req, res, next) => {
+agentRouter.post('/index', async (req, res, next) => {
   try {
+    if (isAuthEnabled() && !canReindexCorpus(req.user)) {
+      res.status(403).json({ error: 'Only administrators may rebuild the vector index.' });
+      return;
+    }
     const chunks = await embedAllIncidentsFromDb();
     const total = await getEmbeddingCount();
     res.json({ indexed: chunks, totalEmbeddings: total, message: 'Vector index rebuilt' });

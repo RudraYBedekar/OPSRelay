@@ -32,9 +32,9 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
   const [component, setComponent] = useState(result.component);
 
   const buildIncident = (): Incident => {
-    const id = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
+    const placeholderId = 'pending';
     return withDefaultTasks({
-      id,
+      id: placeholderId,
       title,
       service,
       component,
@@ -44,12 +44,17 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
       createdAt: new Date().toISOString(),
       leadSRE: 'OpsRelay AI',
       shiftId: 'SHIFT-CURRENT',
-      aiConfidence: result.confidenceScore,
+      aiConfidence: result.confidenceScore ?? 85,
       rawNotes,
-      timeline: result.timeline.map((t, i) => ({ ...t, id: `tl-${i}` })),
-      decisions: result.decisions.map((d, i) => ({ ...d, id: `dec-${i}` })),
-      fixesApplied: result.suggestedFixes,
-      tasks: result.tasks.map((t, i) => ({ ...t, id: `tsk-${i}`, incidentId: id, incidentTitle: title })),
+      timeline: (result.timeline ?? []).map((t, i) => ({ ...t, id: `tl-${i}` })),
+      decisions: (result.decisions ?? []).map((d, i) => ({ ...d, id: `dec-${i}` })),
+      fixesApplied: result.suggestedFixes ?? [],
+      tasks: (result.tasks ?? []).map((t, i) => ({
+        ...t,
+        id: `tsk-${i}`,
+        incidentId: placeholderId,
+        incidentTitle: title,
+      })),
       similarIncidents: [],
     });
   };

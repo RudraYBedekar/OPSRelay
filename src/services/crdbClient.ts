@@ -59,11 +59,40 @@ export const crdbClient = {
     request<import('../types/incident').ShiftHandoff>('/handoff/acknowledge', { method: 'POST' }),
   getIncidents: () => request<import('../types/incident').Incident[]>('/incidents'),
   getIncidentById: (id: string) => request<import('../types/incident').Incident>(`/incidents/${id}`),
-  saveIncident: (incident: import('../types/incident').Incident, shareWithMemberId?: string) =>
-    request<import('../types/incident').Incident>('/incidents', {
+  saveIncident: async (
+    incident: import('../types/incident').Incident,
+    options?: { shareWithMemberId?: string; forceDistinct?: boolean; overrideAlertId?: string },
+  ) => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${BASE}/incidents`, {
       method: 'POST',
-      body: JSON.stringify({ ...incident, shareWithMemberId }),
-    }),
+      headers,
+      body: JSON.stringify({
+        ...incident,
+        shareWithMemberId: options?.shareWithMemberId,
+        forceDistinct: options?.forceDistinct,
+        overrideAlertId: options?.overrideAlertId,
+      }),
+    });
+
+    if (res.status === 401) unauthorizedHandler?.();
+
+    const body = await res.json().catch(() => ({}));
+
+    if (res.status === 409 && (body as { suppressed?: boolean }).suppressed) {
+      const { AlertSuppressedError } = await import('../types/alertFatigue.js');
+      throw new AlertSuppressedError(body as import('../types/alertFatigue').AlertSuppressedResponse);
+    }
+
+    if (!res.ok) {
+      throw new Error((body as { error?: string }).error ?? `API error ${res.status}`);
+    }
+
+    return body as import('../types/incident').Incident;
+  },
   updateIncidentStatus: (id: string, status: import('../types/incident').IncidentStatus) =>
     request<import('../types/incident').Incident>(`/incidents/${id}/status`, {
       method: 'PATCH',
@@ -178,4 +207,13 @@ export const crdbClient = {
       method: 'POST',
       body: JSON.stringify({ memberId, durationMinutes }),
     }),
+  getAlertStatsForIncident: (incidentId: string) =>
+    request<import('../types/alertFatigue').AlertIncidentStats | { suppressedCount: number; summaryMessage: null }>(
+      `/alerts/incident/${incidentId}/stats`,
+    ),
+  overrideAlertDistinct: (alertId: string) =>
+    request<{ alertId: string; message: string; forceDistinct: boolean }>(
+      `/alerts/${alertId}/override-distinct`,
+      { method: 'POST' },
+    ),
 };

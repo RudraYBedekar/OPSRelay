@@ -178,6 +178,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     : new Set<string>();
 
   const corpusHits = searchIncidentsInCorpus(queryText, incidents, 8);
+  const queriedIncidentId = incidentId ?? extractIncidentId(queryText);
 
   let hits;
   let mode: AgentResult['mode'] = 'keyword';
@@ -191,8 +192,10 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
 
   if (embeddingCount > 0) {
     try {
-      const vectorHits = (await searchSimilarIncidents(queryText, 8))
-        .filter((hit) => visibleIds.has(hit.incidentId));
+      const vectorHits = (await searchSimilarIncidents(queryText, 8, undefined, {
+        allowedIncidentIds: visibleIds,
+        excludeIncidentId: queriedIncidentId ?? undefined,
+      }));
       hits = mergeSearchHits(corpusHits, vectorHits).slice(0, 5);
       mode = getEmbedMode() === 'bedrock' ? 'bedrock' : 'local';
     } catch {
@@ -242,7 +245,6 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     );
   });
 
-  const queriedIncidentId = incidentId ?? extractIncidentId(queryText);
   let activeIncident: Record<string, unknown> | null = null;
 
   if (queriedIncidentId) {
