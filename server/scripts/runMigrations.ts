@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { migrateTeamChatSchema } from '../services/teamChatMigration.js';
+import { migrateTeamChatImageSchema } from '../services/teamChatImageMigration.js';
 import { migrateAlertFatigueSchema } from '../services/alertFatigueMigration.js';
 import { migrateEmbeddingProvenanceSchema } from '../services/embeddingProvenanceMigration.js';
 
@@ -7,6 +8,8 @@ async function main() {
   try {
     await migrateEmbeddingProvenanceSchema();
     console.log('Embedding provenance schema OK');
+    await migrateTeamChatImageSchema();
+    console.log('Team chat image schema OK');
     await migrateTeamChatSchema();
     console.log('Team chat schema OK');
     await migrateAlertFatigueSchema();

@@ -1,15 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Camera,
   Clock,
+  ImagePlus,
   Loader2,
   MessageCircle,
   Send,
+  UserMinus,
   UserPlus,
   Users,
 } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../common/Toast';
+import { ChatCameraModal } from './ChatCameraModal';
 import type {
   GuestDuration,
   TeamChatDetail,
@@ -17,6 +21,9 @@ import type {
   TeamChatSummary,
 } from '../../types/teamChat';
 import { formatDate } from '../../utils/formatters';
+import { compressImageForChat } from '../../utils/chatImage';
+
+const GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60];
 
 function formatGuestCountdown(ms: number): string {
   if (ms <= 0) return 'Expired';
@@ -42,10 +49,12 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
   const [guestMemberId, setGuestMemberId] = useState('');
   const [guestDuration, setGuestDuration] = useState<GuestDuration>(15);
   const [showGuestForm, setShowGuestForm] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [guestRemainingMs, setGuestRemainingMs] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadChats = useCallback(async () => {
     if (!apiService.isUsingCrdb()) return;
@@ -110,16 +119,47 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
     }
   };
 
-  const sendMessage = async () => {
-    if (!selectedChatId || !messageText.trim()) return;
+  const sendPayload = async (payload: { text?: string; imageData?: string }) => {
+    if (!selectedChatId) return;
+    if (!payload.text?.trim() && !payload.imageData) return;
+
     setSending(true);
     try {
-      await apiService.sendTeamChatMessage(selectedChatId, messageText.trim());
+      await apiService.sendTeamChatMessage(selectedChatId, payload);
       setMessageText('');
       await loadChatDetail(selectedChatId);
       await loadChats();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Send failed', 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!messageText.trim()) return;
+    await sendPayload({ text: messageText.trim() });
+  };
+
+  const sendImage = async (imageData: string, caption?: string) => {
+    await sendPayload({ text: caption, imageData });
+  };
+
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast('Please choose an image file', 'error');
+      return;
+    }
+    setSending(true);
+    try {
+      const imageData = await compressImageForChat(file);
+      await sendImage(imageData, messageText.trim() || undefined);
+      setMessageText('');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Image upload failed', 'error');
     } finally {
       setSending(false);
     }
@@ -146,6 +186,25 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
     }
   };
 
+  const removeGuest = async () => {
+    if (!selectedChatId || !activeChat?.activeGuest) return;
+    setSending(true);
+    try {
+      const detail = await apiService.removeTeamChatGuest(
+        selectedChatId,
+        activeChat.activeGuest.id,
+      );
+      setActiveChat(detail);
+      setGuestRemainingMs(0);
+      toast('Guest removed from chat', 'success');
+      await loadChats();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Remove failed', 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (!apiService.isUsingCrdb()) {
     return (
       <div className="ops-card p-6 text-center text-sm text-ops-subtext">
@@ -167,6 +226,12 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
 
   return (
     <div className="space-y-4">
+      <ChatCameraModal
+        open={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={(imageData) => void sendImage(imageData, messageText.trim() || undefined)}
+      />
+
       <div className="flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white">
           <MessageCircle className="h-4 w-4" aria-hidden />
@@ -174,13 +239,12 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
         <div>
           <h2 className="text-base font-bold text-ops-text">Team chat</h2>
           <p className="text-xs text-ops-muted">
-            Message a teammate — invite a third member for 15 or 30 minutes
+            Text, images, live camera — timed guests auto-removed or manual kick
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr] min-h-[520px]">
-        {/* Chat list */}
         <div className="ops-card flex flex-col overflow-hidden">
           <div className="border-b border-ops-border p-3 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-ops-muted">New chat</p>
@@ -259,7 +323,6 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
           </div>
         </div>
 
-        {/* Message area */}
         <div className="ops-card flex flex-col overflow-hidden">
           {!activeChat ? (
             <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-ops-muted">
@@ -303,19 +366,31 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         Guest: {activeChat.activeGuest.guestName} ({activeChat.activeGuest.guestMemberId})
                       </p>
                       <p className="text-[11px] text-violet-700">
-                        {activeChat.activeGuest.durationMinutes}-minute access
+                        Auto-removes in {activeChat.activeGuest.durationMinutes} min · expires{' '}
+                        {formatDate(activeChat.activeGuest.expiresAt)}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 text-xs font-mono font-semibold text-violet-800">
                       <Clock className="h-3.5 w-3.5" aria-hidden />
                       {formatGuestCountdown(guestRemainingMs)}
                     </div>
+                    {!isGuestViewer && (
+                      <button
+                        type="button"
+                        disabled={sending}
+                        onClick={() => void removeGuest()}
+                        className="rounded-lg border border-violet-300 bg-white px-2 py-1 text-[11px] font-medium text-violet-800 hover:bg-violet-100"
+                        title="Remove guest now"
+                      >
+                        <UserMinus className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    )}
                   </div>
                 )}
 
                 {showGuestForm && !isGuestViewer && (
                   <div className="mt-3 rounded-lg border border-ops-border bg-slate-50 p-3 space-y-2">
-                    <p className="text-xs font-medium text-ops-text">Invite third member (timed)</p>
+                    <p className="text-xs font-medium text-ops-text">Invite third member (auto-removed after)</p>
                     <input
                       type="text"
                       value={guestMemberId}
@@ -323,19 +398,19 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       placeholder="Guest MEM-ID"
                       className="ops-input text-xs font-mono"
                     />
-                    <div className="flex gap-2">
-                      {([15, 30] as GuestDuration[]).map((d) => (
+                    <div className="grid grid-cols-4 gap-2">
+                      {GUEST_DURATIONS.map((d) => (
                         <button
                           key={d}
                           type="button"
                           onClick={() => setGuestDuration(d)}
-                          className={`flex-1 rounded-lg border py-1.5 text-xs font-medium ${
+                          className={`rounded-lg border py-1.5 text-xs font-medium ${
                             guestDuration === d
                               ? 'border-brand bg-red-50 text-brand'
                               : 'border-ops-border bg-white text-ops-subtext'
                           }`}
                         >
-                          {d} min
+                          {d}m
                         </button>
                       ))}
                     </div>
@@ -355,6 +430,8 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                 {activeChat.messages.map((msg) => {
                   const isMine = msg.senderMemberId === memberId;
                   const isSystem = msg.messageType === 'system';
+                  const isImage = msg.messageType === 'image' && msg.imageData;
+
                   if (isSystem) {
                     return (
                       <div key={msg.id} className="text-center">
@@ -364,6 +441,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       </div>
                     );
                   }
+
                   return (
                     <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                       <div
@@ -376,7 +454,18 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         {!isMine && (
                           <p className="text-[10px] font-medium opacity-70 mb-0.5">{msg.senderName}</p>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                        {isImage && (
+                          <a href={msg.imageData} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={msg.imageData}
+                              alt="Chat attachment"
+                              className="max-h-48 rounded-lg mb-1 object-cover"
+                            />
+                          </a>
+                        )}
+                        {msg.text && msg.text !== '📷 Photo' && (
+                          <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                        )}
                         <p className={`mt-1 text-[10px] ${isMine ? 'text-red-100' : 'text-ops-muted'}`}>
                           {formatDate(msg.createdAt)}
                         </p>
@@ -388,7 +477,34 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
               </div>
 
               <div className="border-t border-ops-border p-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => void handleFilePick(e)}
+                />
                 <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending}
+                    className="ops-btn-secondary min-h-[44px] px-3"
+                    aria-label="Upload image"
+                    title="Upload image"
+                  >
+                    <ImagePlus className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCamera(true)}
+                    disabled={sending}
+                    className="ops-btn-secondary min-h-[44px] px-3"
+                    aria-label="Live camera"
+                    title="Live camera"
+                  >
+                    <Camera className="h-4 w-4" aria-hidden />
+                  </button>
                   <input
                     type="text"
                     value={messageText}
@@ -399,7 +515,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         void sendMessage();
                       }
                     }}
-                    placeholder="Type a message…"
+                    placeholder="Type a message or caption…"
                     className="ops-input flex-1"
                     disabled={sending}
                   />

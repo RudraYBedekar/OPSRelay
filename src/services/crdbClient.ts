@@ -197,15 +197,19 @@ export const crdbClient = {
     }),
   getTeamChat: (chatId: string) =>
     request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}`),
-  sendTeamChatMessage: (chatId: string, text: string) =>
+  sendTeamChatMessage: (chatId: string, input: import('../types/teamChat').SendTeamChatMessageInput) =>
     request<import('../types/teamChat').TeamChatMessage>(`/team-chat/${chatId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(input),
     }),
-  inviteTeamChatGuest: (chatId: string, memberId: string, durationMinutes: 15 | 30) =>
+  inviteTeamChatGuest: (chatId: string, memberId: string, durationMinutes: 5 | 15 | 30 | 60) =>
     request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}/guests`, {
       method: 'POST',
       body: JSON.stringify({ memberId, durationMinutes }),
+    }),
+  removeTeamChatGuest: (chatId: string, guestId: string) =>
+    request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}/guests/${guestId}`, {
+      method: 'DELETE',
     }),
   getAlertStatsForIncident: (incidentId: string) =>
     request<import('../types/alertFatigue').AlertIncidentStats | { suppressedCount: number; summaryMessage: null }>(

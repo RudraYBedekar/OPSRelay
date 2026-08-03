@@ -3,7 +3,9 @@ import { secureQuery, secureQueryOne } from '../secureDb.js';
 import type { AuthUser } from './authService.js';
 import { isValidMemberIdFormat } from './incidentAccessService.js';
 
-export type GuestDuration = 15 | 30;
+export type GuestDuration = 5 | 15 | 30 | 60;
+
+export type ChatMessageType = 'user' | 'system' | 'image';
 
 export interface TeamChatMember {
   memberId: string;
@@ -27,7 +29,8 @@ export interface TeamChatMessage {
   senderMemberId: string;
   senderName: string;
   text: string;
-  messageType: 'user' | 'system';
+  messageType: ChatMessageType;
+  imageData?: string;
   createdAt: string;
 }
 
@@ -135,6 +138,45 @@ async function insertSystemMessage(chatId: string, text: string): Promise<void> 
      VALUES ($1, 'system', 'OpsRelay', $2, 'system')`,
     [chatId, text],
   );
+}
+
+const ALLOWED_GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60];
+const MAX_IMAGE_BYTES = 600_000;
+
+function mapMessageRow(m: {
+  id: string;
+  chat_id: string;
+  sender_member_id: string;
+  sender_name: string;
+  text: string;
+  message_type: string;
+  image_data: string | null;
+  created_at: string;
+}): TeamChatMessage {
+  const type = m.message_type === 'system'
+    ? 'system'
+    : m.message_type === 'image'
+      ? 'image'
+      : 'user';
+  return {
+    id: m.id,
+    chatId: m.chat_id,
+    senderMemberId: m.sender_member_id,
+    senderName: m.sender_name,
+    text: m.text,
+    messageType: type,
+    imageData: m.image_data ?? undefined,
+    createdAt: m.created_at,
+  };
+}
+
+function validateImageData(imageData: string): void {
+  if (!imageData.startsWith('data:image/jpeg') && !imageData.startsWith('data:image/png') && !imageData.startsWith('data:image/webp')) {
+    throw new Error('Image must be JPEG, PNG, or WebP');
+  }
+  if (imageData.length > MAX_IMAGE_BYTES) {
+    throw new Error('Image is too large (max ~450KB). Try a smaller photo.');
+  }
 }
 
 export async function listChatsForUser(user: AuthUser): Promise<TeamChatSummary[]> {
@@ -247,9 +289,10 @@ export async function getChatDetail(chatId: string, memberId: string): Promise<T
     sender_name: string;
     text: string;
     message_type: string;
+    image_data: string | null;
     created_at: string;
   }>(
-    'SELECT * FROM team_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
+    'SELECT id, chat_id, sender_member_id, sender_name, text, message_type, image_data, created_at FROM team_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
     [chatId],
   );
 
@@ -265,15 +308,7 @@ export async function getChatDetail(chatId: string, memberId: string): Promise<T
   return {
     id: chat.id,
     participants,
-    messages: messages.map((m) => ({
-      id: m.id,
-      chatId: m.chat_id,
-      senderMemberId: m.sender_member_id,
-      senderName: m.sender_name,
-      text: m.text,
-      messageType: m.message_type === 'system' ? 'system' : 'user',
-      createdAt: m.created_at,
-    })),
+    messages: messages.map(mapMessageRow),
     activeGuest: guest,
     createdAt: chat.created_at,
     updatedAt: chat.updated_at,
@@ -284,9 +319,12 @@ export async function sendChatMessage(
   chatId: string,
   user: AuthUser,
   text: string,
+  imageData?: string,
 ): Promise<TeamChatMessage> {
   const trimmed = text.trim();
-  if (!trimmed) throw new Error('Message cannot be empty');
+  const hasImage = Boolean(imageData?.trim());
+
+  if (!trimmed && !hasImage) throw new Error('Message cannot be empty');
 
   const chat = await queryOne<{ member_a_id: string; member_b_id: string }>(
     'SELECT member_a_id, member_b_id FROM team_chats WHERE id = $1',
@@ -297,6 +335,13 @@ export async function sendChatMessage(
   const allowed = await canAccessChat(chat, user.memberId, chatId);
   if (!allowed) throw new Error('You do not have access to this chat');
 
+  if (hasImage) {
+    validateImageData(imageData!);
+  }
+
+  const messageType = hasImage ? 'image' : 'user';
+  const displayText = trimmed || (hasImage ? '📷 Photo' : '');
+
   const row = await queryOne<{
     id: string;
     chat_id: string;
@@ -304,25 +349,18 @@ export async function sendChatMessage(
     sender_name: string;
     text: string;
     message_type: string;
+    image_data: string | null;
     created_at: string;
   }>(
-    `INSERT INTO team_chat_messages (chat_id, sender_member_id, sender_name, text, message_type)
-     VALUES ($1, $2, $3, $4, 'user')
-     RETURNING *`,
-    [chatId, user.memberId, user.name, trimmed],
+    `INSERT INTO team_chat_messages (chat_id, sender_member_id, sender_name, text, message_type, image_data)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, chat_id, sender_member_id, sender_name, text, message_type, image_data, created_at`,
+    [chatId, user.memberId, user.name, displayText, messageType, hasImage ? imageData : null],
   );
 
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
-  return {
-    id: row!.id,
-    chatId: row!.chat_id,
-    senderMemberId: row!.sender_member_id,
-    senderName: row!.sender_name,
-    text: row!.text,
-    messageType: 'user',
-    createdAt: row!.created_at,
-  };
+  return mapMessageRow(row!);
 }
 
 export async function inviteGuestToChat(
@@ -331,8 +369,8 @@ export async function inviteGuestToChat(
   guestMemberId: string,
   durationMinutes: GuestDuration,
 ): Promise<TeamChatDetail> {
-  if (durationMinutes !== 15 && durationMinutes !== 30) {
-    throw new Error('Guest duration must be 15 or 30 minutes');
+  if (!ALLOWED_GUEST_DURATIONS.includes(durationMinutes)) {
+    throw new Error('Guest duration must be 5, 15, 30, or 60 minutes');
   }
 
   const normalized = guestMemberId.trim().toUpperCase();
@@ -377,6 +415,52 @@ export async function inviteGuestToChat(
   await insertSystemMessage(
     chatId,
     `${user.name} invited ${guest.name} (${guest.memberId}) for ${durationMinutes} minutes.`,
+  );
+  await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
+
+  return getChatDetail(chatId, user.memberId);
+}
+
+export async function removeGuestFromChat(
+  chatId: string,
+  user: AuthUser,
+  guestId?: string,
+): Promise<TeamChatDetail> {
+  const chat = await queryOne<{
+    member_a_id: string;
+    member_b_id: string;
+  }>('SELECT member_a_id, member_b_id FROM team_chats WHERE id = $1', [chatId]);
+
+  if (!chat) throw new Error('Chat not found');
+  if (chat.member_a_id !== user.memberId && chat.member_b_id !== user.memberId) {
+    throw new Error('Only chat participants can remove a guest');
+  }
+
+  await expireStaleGuests(chatId);
+
+  const guest = guestId
+    ? await queryOne<{ id: string; guest_member_id: string; guest_name: string }>(
+        `SELECT id, guest_member_id, guest_name FROM team_chat_guests
+         WHERE id = $1 AND chat_id = $2 AND status = 'active'`,
+        [guestId, chatId],
+      )
+    : await queryOne<{ id: string; guest_member_id: string; guest_name: string }>(
+        `SELECT id, guest_member_id, guest_name FROM team_chat_guests
+         WHERE chat_id = $1 AND status = 'active' AND expires_at > now()
+         ORDER BY created_at DESC LIMIT 1`,
+        [chatId],
+      );
+
+  if (!guest) throw new Error('No active guest to remove');
+
+  await query(
+    `UPDATE team_chat_guests SET status = 'expired', expires_at = now() WHERE id = $1`,
+    [guest.id],
+  );
+
+  await insertSystemMessage(
+    chatId,
+    `${user.name} removed ${guest.guest_name} (${guest.guest_member_id}) from the chat.`,
   );
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 

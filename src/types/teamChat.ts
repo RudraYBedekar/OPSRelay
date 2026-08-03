@@ -1,4 +1,6 @@
-export type GuestDuration = 15 | 30;
+export type GuestDuration = 5 | 15 | 30 | 60;
+
+export type ChatMessageType = 'user' | 'system' | 'image';
 
 export interface TeamChatMember {
   memberId: string;
@@ -22,7 +24,8 @@ export interface TeamChatMessage {
   senderMemberId: string;
   senderName: string;
   text: string;
-  messageType: 'user' | 'system';
+  messageType: ChatMessageType;
+  imageData?: string;
   createdAt: string;
 }
 
@@ -42,4 +45,9 @@ export interface TeamChatDetail {
   activeGuest?: TeamChatGuest;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SendTeamChatMessageInput {
+  text?: string;
+  imageData?: string;
 }

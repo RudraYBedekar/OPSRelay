@@ -17,6 +17,7 @@ import { accessRouter } from './routes/access.js';
 import { alertsRouter } from './routes/alerts.js';
 import { teamChatRouter } from './routes/teamChat.js';
 import { migrateTeamChatSchema } from './services/teamChatMigration.js';
+import { migrateTeamChatImageSchema } from './services/teamChatImageMigration.js';
 import { migrateAlertFatigueSchema } from './services/alertFatigueMigration.js';
 import { migrateEmbeddingProvenanceSchema } from './services/embeddingProvenanceMigration.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
@@ -35,7 +36,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean);
 app.use(cors(corsOrigins?.length ? { origin: corsOrigins } : undefined));
 app.use(securityHeaders);
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '5mb' }));
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -129,6 +130,13 @@ app.listen(PORT, async () => {
     console.log('Embedding provenance columns ready');
   } catch (err) {
     console.warn('Embedding provenance migration skipped:', err instanceof Error ? err.message : err);
+  }
+
+  try {
+    await migrateTeamChatImageSchema();
+    console.log('Team chat image columns ready');
+  } catch (err) {
+    console.warn('Team chat image migration skipped:', err instanceof Error ? err.message : err);
   }
 
   try {

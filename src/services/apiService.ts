@@ -556,14 +556,26 @@ class ApiService {
     return crdbClient.getTeamChat(chatId);
   }
 
-  public async sendTeamChatMessage(chatId: string, text: string) {
+  public async sendTeamChatMessage(
+    chatId: string,
+    input: import('../types/teamChat').SendTeamChatMessageInput,
+  ) {
     if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
-    return crdbClient.sendTeamChatMessage(chatId, text);
+    return crdbClient.sendTeamChatMessage(chatId, input);
   }
 
-  public async inviteTeamChatGuest(chatId: string, memberId: string, durationMinutes: 15 | 30) {
+  public async inviteTeamChatGuest(
+    chatId: string,
+    memberId: string,
+    durationMinutes: 5 | 15 | 30 | 60,
+  ) {
     if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
     return crdbClient.inviteTeamChatGuest(chatId, memberId, durationMinutes);
+  }
+
+  public async removeTeamChatGuest(chatId: string, guestId: string) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.removeTeamChatGuest(chatId, guestId);
   }
 
   public async getAlertStatsForIncident(incidentId: string) {
