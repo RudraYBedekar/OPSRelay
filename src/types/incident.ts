@@ -69,6 +69,8 @@ export interface Incident {
   rawNotes?: string;
   aiConfidence: number; // e.g., 94 for 94%
   similarIncidents: RelatedIncident[];
+  analysisStatus?: 'not_started' | 'running' | 'review_required' | 'approved' | 'failed';
+  duplicateCandidate?: import('./alertFatigue').DuplicateCandidate;
 }
 
 export interface ExtractionResult {

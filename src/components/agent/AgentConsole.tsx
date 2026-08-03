@@ -3,6 +3,8 @@ import { Loader2, Send, Sparkles, Bot, User, Database } from 'lucide-react';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatSidebar, buildChatThreads, type ChatThread } from './ChatSidebar';
 import { MemorySourceCard } from './MemorySourceCard';
+import { McpCitationCard } from './McpCitationCard';
+import type { McpCitation } from '../../types/investigator';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useToast } from '../common/Toast';
 import { apiService } from '../../services/apiService';
@@ -28,6 +30,7 @@ interface LiveMessage {
   content: string;
   mode?: string;
   similarIncidents?: AgentRunResult['similarIncidents'];
+  mcpCitations?: McpCitation[];
   linkedIncidentId?: string;
 }
 
@@ -87,6 +90,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [agentMode, setAgentMode] = useState<'memory' | 'mcp'>('memory');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const threads = buildChatThreads(chatHistory);
@@ -144,19 +148,32 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
     setActiveThreadId(null);
 
     try {
-      const agentResult = await apiService.runAgent(q, incidentId || undefined, saveChat) as AgentRunResult;
-      const assistantMsg: LiveMessage = {
-        id: `live-assistant-${Date.now()}`,
-        role: 'assistant',
-        content: agentResult.answer,
-        mode: agentResult.mode,
-        similarIncidents: agentResult.similarIncidents,
-        linkedIncidentId: incidentId || undefined,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-      if (saveChat) {
-        await loadHistory();
-        toast('Saved to chat history', 'success');
+      if (agentMode === 'mcp') {
+        const result = await apiService.queryInvestigator(q, incidentId || undefined);
+        const assistantMsg: LiveMessage = {
+          id: `live-assistant-${Date.now()}`,
+          role: 'assistant',
+          content: result.answer,
+          mode: 'mcp',
+          mcpCitations: result.citations,
+          linkedIncidentId: incidentId || undefined,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+      } else {
+        const agentResult = await apiService.runAgent(q, incidentId || undefined, saveChat) as AgentRunResult;
+        const assistantMsg: LiveMessage = {
+          id: `live-assistant-${Date.now()}`,
+          role: 'assistant',
+          content: agentResult.answer,
+          mode: agentResult.mode,
+          similarIncidents: agentResult.similarIncidents,
+          linkedIncidentId: incidentId || undefined,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        if (saveChat) {
+          await loadHistory();
+          toast('Saved to chat history', 'success');
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Request failed');
@@ -200,6 +217,15 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
+                value={agentMode}
+                onChange={(e) => setAgentMode(e.target.value as 'memory' | 'mcp')}
+                className="ops-input max-w-[140px] py-1.5 text-xs"
+                aria-label="Agent mode"
+              >
+                <option value="memory">Vector memory</option>
+                <option value="mcp">MCP investigator</option>
+              </select>
+              <select
                 value={incidentId}
                 onChange={(e) => setIncidentId(e.target.value)}
                 className="ops-input max-w-[200px] py-1.5 text-xs"
@@ -215,6 +241,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                   type="checkbox"
                   checked={saveChat}
                   onChange={(e) => setSaveChat(e.target.checked)}
+                  disabled={agentMode === 'mcp'}
                   className="h-3.5 w-3.5 rounded border-ops-border text-brand"
                 />
                 <Database className="h-3.5 w-3.5" /> Save
@@ -272,6 +299,13 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                           </p>
                         )}
                         <ChatMarkdown content={msg.content} />
+                        {msg.mcpCitations && msg.mcpCitations.length > 0 && (
+                          <div className="grid gap-2 sm:grid-cols-2 pt-2">
+                            {msg.mcpCitations.map((c) => (
+                              <McpCitationCard key={c.citationId} citation={c} onInspectIncident={onInspectIncident} />
+                            ))}
+                          </div>
+                        )}
                         {msg.similarIncidents && msg.similarIncidents.length > 0 && (
                           <div className="grid gap-2 sm:grid-cols-2 pt-2">
                             {msg.similarIncidents.slice(0, 4).map((m) => (
@@ -351,7 +385,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
               </button>
             </form>
             <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-ops-muted">
-              Shift+Enter for new line · Answers use your incident database and vector memory
+              Shift+Enter for new line · {agentMode === 'mcp' ? 'MCP mode returns read-only evidence citations' : 'Answers use your incident database and vector memory'}
             </p>
           </div>
         </div>

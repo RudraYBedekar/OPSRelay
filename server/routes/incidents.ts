@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { query, queryOne, withTransaction, queryWithClient } from '../db.js';
 import { indexIncident, type IncidentRecord } from '../services/vectorService.js';
 import { normalizeIncidentForSave } from '../utils/incidentTasks.js';
-import { generateIncidentId } from '../utils/incidentId.js';
 import { scanAndRedactSecrets, assertNotesSafeForProcessing } from '../utils/redactSecrets.js';
 import {
   canViewIncident,
@@ -13,12 +12,9 @@ import {
   shareIncidentWithMember,
 } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
-import {
-  buildAlertText,
-  evaluateAlert,
-  recordAlertForIncident,
-  markAlertResolvedForIncident,
-} from '../services/alertFatigueService.js';
+import { createIntakeIncident } from '../services/analysisService.js';
+import { markAlertResolvedForIncident } from '../services/alertFatigueService.js';
+import { enqueuePostApprovalJobs } from '../services/incidentJobService.js';
 
 export const incidentsRouter = Router();
 
@@ -63,94 +59,38 @@ incidentsRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-/** Create a new incident — server assigns ID; client IDs are ignored. */
+/** Durable intake — save notes before any AI or embedding work. */
 incidentsRouter.post('/', async (req, res, next) => {
   try {
-    const body = req.body as IncidentRecord & {
-      shareWithMemberId?: string;
-      forceDistinct?: boolean;
-      overrideAlertId?: string;
-      id?: string;
-    };
-
-    if (body.id) {
-      const existing = await queryOne<{ data: Record<string, unknown> }>(
-        'SELECT data FROM incidents WHERE id = $1',
-        [body.id],
-      );
-      if (existing) {
-        res.status(409).json({
-          error: 'Incident already exists. Use PATCH /incidents/:id to update an existing incident.',
-        });
-        return;
-      }
-    }
-
-    const incident = normalizeIncidentForSave(body);
-    incident.id = generateIncidentId();
-
-    const rawNotes = (incident as { rawNotes?: string }).rawNotes;
-    if (rawNotes?.trim()) {
-      assertNotesSafeForProcessing(rawNotes);
-      (incident as { rawNotes?: string }).rawNotes = scanAndRedactSecrets(rawNotes).redactedText;
-    }
-
-    if (isAuthEnabled() && req.user) {
-      incident.ownerMemberId = req.user.memberId;
-      incident.ownerName = req.user.name;
-    }
-
-    const alertText = buildAlertText({
-      title: incident.title,
-      summary: incident.summary,
-      rawNotes: (incident as { rawNotes?: string }).rawNotes,
-    });
-    const evaluation = await evaluateAlert(alertText, incident.service, {
-      forceDistinct: body.forceDistinct,
-      overrideAlertId: body.overrideAlertId,
-    });
-    if (evaluation.suppressed) {
-      res.status(409).json({
-        suppressed: true,
-        ...evaluation,
-      });
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    const shareTargets = [
-      ...(incident.sharedWithMemberIds ?? []),
-      ...(body.shareWithMemberId ? [body.shareWithMemberId] : []),
-    ];
-    if (isAuthEnabled() && req.user && shareTargets.length > 0) {
-      incident.sharedWithMemberIds = await normalizeShareTargets(req.user.memberId, shareTargets);
-    } else if (shareTargets.length > 0) {
-      incident.sharedWithMemberIds = [...new Set(shareTargets.map((id) => id.trim().toUpperCase()))];
+    const { title, rawNotes, shareWithMemberId } = req.body as {
+      title?: string;
+      rawNotes?: string;
+      shareWithMemberId?: string;
+    };
+
+    if (!rawNotes?.trim()) {
+      res.status(400).json({ error: 'rawNotes is required' });
+      return;
     }
 
-    if (Array.isArray(incident.tasks)) {
-      incident.tasks = incident.tasks.map((task) => ({
-        ...task,
-        incidentId: incident.id,
-        incidentTitle: incident.title,
-      }));
-    }
+    let incident = await createIntakeIncident(req.user, { title, rawNotes });
 
-    await withTransaction(async (client) => {
-      await queryWithClient(
-        client,
-        `INSERT INTO incidents (id, data, created_at, updated_at)
-         VALUES ($1, $2::jsonb, $3::timestamptz, now())`,
-        [incident.id, JSON.stringify(incident), incident.createdAt ?? new Date().toISOString()],
+    if (shareWithMemberId?.trim() && isAuthEnabled()) {
+      const shareTargets = await normalizeShareTargets(req.user.memberId, [shareWithMemberId]);
+      incident = {
+        ...incident,
+        sharedWithMemberIds: shareTargets,
+      };
+      await query(
+        'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
+        [incident.id, JSON.stringify(incident)],
       );
-    });
-
-    indexIncident(incident).catch((err) =>
-      console.warn(`Vector index failed for ${incident.id}:`, err instanceof Error ? err.message : err),
-    );
-
-    recordAlertForIncident(alertText, incident.service, incident.id).catch((err) =>
-      console.warn(`Alert index failed for ${incident.id}:`, err instanceof Error ? err.message : err),
-    );
+    }
 
     res.status(201).json(incident);
   } catch (err) {
@@ -178,11 +118,17 @@ incidentsRouter.patch('/:id', async (req, res, next) => {
       return;
     }
 
-    const existing = row.data as IncidentRecord & { ownerMemberId?: string; ownerName?: string };
+    const existing = row.data as IncidentRecord & {
+      ownerMemberId?: string;
+      ownerName?: string;
+      analysisStatus?: string;
+    };
     if (isAuthEnabled() && req.user && !canEditIncident(existing, req.user)) {
       res.status(404).json({ error: `Incident ${req.params.id} not found` });
       return;
     }
+
+    const wasApproved = existing.analysisStatus === 'approved';
 
     const incident = normalizeIncidentForSave({
       ...existing,
@@ -200,6 +146,14 @@ incidentsRouter.patch('/:id', async (req, res, next) => {
       (incident as { rawNotes?: string }).rawNotes = scanAndRedactSecrets(rawNotes).redactedText;
     }
 
+    if (Array.isArray(incident.tasks)) {
+      incident.tasks = incident.tasks.map((task) => ({
+        ...task,
+        incidentId: incident.id,
+        incidentTitle: incident.title,
+      }));
+    }
+
     await withTransaction(async (client) => {
       await queryWithClient(
         client,
@@ -208,9 +162,14 @@ incidentsRouter.patch('/:id', async (req, res, next) => {
       );
     });
 
-    indexIncident(incident).catch((err) =>
-      console.warn(`Vector index failed for ${incident.id}:`, err instanceof Error ? err.message : err),
-    );
+    const nowApproved = incident.analysisStatus === 'approved';
+    if (!wasApproved && nowApproved) {
+      await enqueuePostApprovalJobs(incident.id);
+    } else if (nowApproved && req.body.reindex === true) {
+      indexIncident(incident).catch((err) =>
+        console.warn(`Vector re-index failed for ${incident.id}:`, err instanceof Error ? err.message : err),
+      );
+    }
 
     res.json(incident);
   } catch (err) {
@@ -229,7 +188,13 @@ incidentsRouter.patch('/:id/status', async (req, res, next) => {
       return;
     }
 
-    const incident = row.data as { ownerMemberId?: string; status?: string; resolvedAt?: string; createdAt?: string; mttrMinutes?: number };
+    const incident = row.data as {
+      ownerMemberId?: string;
+      status?: string;
+      resolvedAt?: string;
+      createdAt?: string;
+      mttrMinutes?: number;
+    };
     if (isAuthEnabled() && req.user && !canEditIncident(incident, req.user)) {
       res.status(404).json({ error: `Incident ${req.params.id} not found` });
       return;
@@ -241,9 +206,11 @@ incidentsRouter.patch('/:id/status', async (req, res, next) => {
       incident.resolvedAt = new Date().toISOString();
       const created = new Date(String(incident.createdAt)).getTime();
       incident.mttrMinutes = Math.round((Date.now() - created) / 60000) || 25;
-      markAlertResolvedForIncident(req.params.id).catch((err) =>
-        console.warn(`Alert resolve sync failed for ${req.params.id}:`, err instanceof Error ? err.message : err),
-      );
+      if (incident.ownerMemberId) {
+        markAlertResolvedForIncident(req.params.id, incident.ownerMemberId).catch((err) =>
+          console.warn(`Alert resolve sync failed for ${req.params.id}:`, err instanceof Error ? err.message : err),
+        );
+      }
     }
 
     await query(

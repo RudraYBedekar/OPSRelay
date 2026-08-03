@@ -59,39 +59,45 @@ export const crdbClient = {
     request<import('../types/incident').ShiftHandoff>('/handoff/acknowledge', { method: 'POST' }),
   getIncidents: () => request<import('../types/incident').Incident[]>('/incidents'),
   getIncidentById: (id: string) => request<import('../types/incident').Incident>(`/incidents/${id}`),
+  createIntakeIncident: (input: { title?: string; rawNotes: string; shareWithMemberId?: string }) =>
+    request<import('../types/alertFatigue').IntakeIncidentResponse>('/incidents', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  patchIncident: (id: string, body: Record<string, unknown>) =>
+    request<import('../types/incident').Incident>(`/incidents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  startAnalysis: (incidentId: string, idempotencyKey: string) =>
+    request<import('../types/alertFatigue').AnalysisRun>(`/incidents/${incidentId}/analysis`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+    }),
+  getAnalysisCurrent: (incidentId: string) =>
+    request<import('../types/alertFatigue').AnalysisCurrentResponse>(
+      `/incidents/${incidentId}/analysis/current`,
+    ),
+  approveAnalysis: (incidentId: string, runId: string, draft: Record<string, unknown>) =>
+    request<import('../types/incident').Incident>(
+      `/incidents/${incidentId}/analysis/${runId}/approve`,
+      { method: 'POST', body: JSON.stringify(draft) },
+    ),
   saveIncident: async (
     incident: import('../types/incident').Incident,
-    options?: { shareWithMemberId?: string; forceDistinct?: boolean; overrideAlertId?: string },
+    options?: { shareWithMemberId?: string },
   ) => {
-    const token = getAuthToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const res = await fetch(`${BASE}/incidents`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        ...incident,
-        shareWithMemberId: options?.shareWithMemberId,
-        forceDistinct: options?.forceDistinct,
-        overrideAlertId: options?.overrideAlertId,
-      }),
+    const intake = await crdbClient.createIntakeIncident({
+      title: incident.title,
+      rawNotes: incident.rawNotes ?? incident.summary,
+      shareWithMemberId: options?.shareWithMemberId,
     });
-
-    if (res.status === 401) unauthorizedHandler?.();
-
-    const body = await res.json().catch(() => ({}));
-
-    if (res.status === 409 && (body as { suppressed?: boolean }).suppressed) {
-      const { AlertSuppressedError } = await import('../types/alertFatigue.js');
-      throw new AlertSuppressedError(body as import('../types/alertFatigue').AlertSuppressedResponse);
-    }
-
-    if (!res.ok) {
-      throw new Error((body as { error?: string }).error ?? `API error ${res.status}`);
-    }
-
-    return body as import('../types/incident').Incident;
+    const { id: _id, ...rest } = incident;
+    return crdbClient.patchIncident(intake.id, {
+      ...rest,
+      id: intake.id,
+      analysisStatus: 'approved',
+    });
   },
   updateIncidentStatus: (id: string, status: import('../types/incident').IncidentStatus) =>
     request<import('../types/incident').Incident>(`/incidents/${id}/status`, {
@@ -220,4 +226,11 @@ export const crdbClient = {
       `/alerts/${alertId}/override-distinct`,
       { method: 'POST' },
     ),
+  getInvestigatorStatus: () =>
+    request<import('../types/investigator').InvestigatorStatus>('/investigator/status'),
+  queryInvestigator: (question: string, incidentId?: string) =>
+    request<import('../types/investigator').InvestigationResult>('/investigator/query', {
+      method: 'POST',
+      body: JSON.stringify({ question, incidentId }),
+    }),
 };

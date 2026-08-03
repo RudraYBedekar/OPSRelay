@@ -13,8 +13,8 @@ interface NotesFormProps {
 
 const STEPS = [
   { n: 1, label: 'Paste logs' },
-  { n: 2, label: 'AI extract' },
-  { n: 3, label: 'Review & save' },
+  { n: 2, label: 'Save & analyze' },
+  { n: 3, label: 'Review & approve' },
 ];
 
 export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, step }) => {
@@ -117,9 +117,9 @@ export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, s
               className="ops-btn-primary min-h-[44px] min-w-[160px]"
             >
               {isExtracting ? (
-                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Step 2 — Extracting…</>
+                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Step 2 — Saving & analyzing…</>
               ) : (
-                <><FileText className="h-4 w-4" aria-hidden /> Step 2 — Extract with AI</>
+                <><FileText className="h-4 w-4" aria-hidden /> Step 2 — Save & analyze</>
               )}
             </button>
           </div>

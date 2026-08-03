@@ -15,6 +15,10 @@ import { sampleLogsRouter } from './routes/sampleLogs.js';
 import { authRouter } from './routes/auth.js';
 import { accessRouter } from './routes/access.js';
 import { alertsRouter } from './routes/alerts.js';
+import { analysisRouter } from './routes/analysis.js';
+import { investigatorRouter } from './routes/investigator.js';
+import { runVersionedMigrations } from './migrations/runVersionedMigrations.js';
+import { startJobWorker } from './services/jobWorker.js';
 import { teamChatRouter } from './routes/teamChat.js';
 import { migrateTeamChatSchema } from './services/teamChatMigration.js';
 import { migrateTeamChatImageSchema } from './services/teamChatImageMigration.js';
@@ -100,7 +104,9 @@ protectedApi.get('/bedrock/test', async (_req, res) => {
 });
 
 protectedApi.use('/access', accessRouter);
+protectedApi.use('/incidents', analysisRouter);
 protectedApi.use('/incidents', incidentsRouter);
+protectedApi.use('/investigator', investigatorRouter);
 protectedApi.use('/tasks', tasksRouter);
 protectedApi.use('/metrics', metricsRouter);
 protectedApi.use('/handoff', handoffRouter);
@@ -124,6 +130,16 @@ app.listen(PORT, async () => {
   console.log(`Auth: ${isAuthEnabled() ? 'ENABLED (JWT)' : 'disabled'}`);
   console.log(`Bedrock: ${isBedrockConfigured() ? 'ENABLED' : 'disabled (fallback mode)'}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
+
+  try {
+    const applied = await runVersionedMigrations();
+    if (applied.length) console.log('Versioned migrations applied:', applied.join(', '));
+  } catch (err) {
+    console.warn('Versioned migrations skipped:', err instanceof Error ? err.message : err);
+  }
+
+  startJobWorker();
+  console.log('Background job worker started (15s interval)');
 
   try {
     await migrateEmbeddingProvenanceSchema();

@@ -3,9 +3,12 @@ import { migrateTeamChatSchema } from '../services/teamChatMigration.js';
 import { migrateTeamChatImageSchema } from '../services/teamChatImageMigration.js';
 import { migrateAlertFatigueSchema } from '../services/alertFatigueMigration.js';
 import { migrateEmbeddingProvenanceSchema } from '../services/embeddingProvenanceMigration.js';
+import { runVersionedMigrations } from '../migrations/runVersionedMigrations.js';
 
 async function main() {
   try {
+    const applied = await runVersionedMigrations();
+    if (applied.length) console.log('Versioned migrations:', applied.join(', '));
     await migrateEmbeddingProvenanceSchema();
     console.log('Embedding provenance schema OK');
     await migrateTeamChatImageSchema();

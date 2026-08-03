@@ -4,39 +4,50 @@ import { NotesForm } from './NotesForm';
 import { QuickIntakeForm } from './QuickIntakeForm';
 import { ExtractionResultView } from './ExtractionResultView';
 import type { ExtractionResult, Incident } from '../../types/incident';
+import type { AnalysisRun } from '../../types/alertFatigue';
 
 export type IntakeMode = 'quick' | 'ai';
 
 interface IntakePanelProps {
   mode: IntakeMode;
   onModeChange: (mode: IntakeMode) => void;
-  onExtract: (notes: string) => void;
-  isExtracting: boolean;
+  onSaveAndAnalyze: (notes: string) => void;
+  isAnalyzing: boolean;
   step: 1 | 2 | 3;
   onQuickSave: (incident: Incident, shareWithMemberId?: string) => Promise<void>;
   onSaveSampleLog?: (log: { title: string; content: string; category?: string }) => Promise<void>;
   defaultOwner?: string;
   senderMemberId?: string;
   extractionResult: ExtractionResult | null;
+  savedIncidentId?: string;
+  analysisRun?: AnalysisRun | null;
+  analysisJobs?: Array<{ jobType: string; status: string }>;
   lastRawNotes: string;
-  onSaveExtracted: (incident: Incident, shareWithMemberId?: string) => void | Promise<void>;
+  onApproveExtracted: (incidentId: string, runId: string, draft: ExtractionResult, shareWithMemberId?: string) => Promise<void>;
+  onRetryAnalysis?: () => void;
   onResetExtraction: () => void;
+  analysisFailed?: boolean;
 }
 
 export const IntakePanel: React.FC<IntakePanelProps> = ({
   mode,
   onModeChange,
-  onExtract,
-  isExtracting,
+  onSaveAndAnalyze,
+  isAnalyzing,
   step,
   onQuickSave,
   onSaveSampleLog,
   defaultOwner,
   senderMemberId,
   extractionResult,
+  savedIncidentId,
+  analysisRun,
+  analysisJobs,
   lastRawNotes,
-  onSaveExtracted,
+  onApproveExtracted,
+  onRetryAnalysis,
   onResetExtraction,
+  analysisFailed,
 }) => (
   <div className="space-y-5">
     <div className="flex rounded-xl border border-ops-border bg-slate-50/80 p-1">
@@ -69,14 +80,19 @@ export const IntakePanel: React.FC<IntakePanelProps> = ({
       />
     ) : (
       <>
-        <NotesForm onExtract={onExtract} isExtracting={isExtracting} step={step} />
-        {extractionResult && (
+        <NotesForm onExtract={onSaveAndAnalyze} isExtracting={isAnalyzing} step={step} />
+        {extractionResult && savedIncidentId && analysisRun && (
           <ExtractionResultView
             result={extractionResult}
             rawNotes={lastRawNotes}
-            onSave={onSaveExtracted}
+            incidentId={savedIncidentId}
+            runId={analysisRun.id}
+            onApprove={onApproveExtracted}
+            onRetryAnalysis={onRetryAnalysis}
             onReset={onResetExtraction}
             senderMemberId={senderMemberId}
+            analysisFailed={analysisFailed}
+            jobs={analysisJobs}
           />
         )}
       </>

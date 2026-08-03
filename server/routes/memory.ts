@@ -62,15 +62,14 @@ memoryRouter.post('/query', async (req, res, next) => {
         title: m.title,
         similarityScore: m.similarityScore,
         service: m.service,
-        resolvedDuration: inc?.mttrMinutes ? `${inc.mttrMinutes} mins` : '30 mins',
+        resolvedDuration: inc?.mttrMinutes ? `${inc.mttrMinutes} mins` : undefined,
         keyTakeaway: m.keyTakeaway,
         citations: [
-          `Vector chunk: ${m.id}`,
-          `Postmortem #${m.id}-PM`,
-          result.mode === 'bedrock' ? 'Bedrock Agent + CRDB Vector' : result.mode === 'local' ? 'Local Vector + CRDB' : 'Keyword fallback',
+          `Incident ${m.id}`,
+          result.mode === 'bedrock' ? 'Vector search (Bedrock embeddings)' : result.mode === 'local' ? 'Vector search (local)' : 'Keyword search',
         ],
-        severity: inc?.severity ?? 'SEV-2',
-        resolvedDate: inc?.resolvedAt ? String(inc.resolvedAt).split('T')[0] : '2026-07-26',
+        severity: inc?.severity,
+        resolvedDate: inc?.resolvedAt ? String(inc.resolvedAt).split('T')[0] : undefined,
       };
     });
 
@@ -92,15 +91,7 @@ memoryRouter.post('/query', async (req, res, next) => {
       matchedIncidents: matches,
       agentMode: result.mode,
       ownerMemberId,
-      suggestedRunbooks: matches[0]
-        ? [
-            {
-              title: `${matches[0].service} Diagnostic Runbook`,
-              url: `https://internal-wiki.opsrelay.io/runbooks/${matches[0].service}`,
-              codeSnippet: `OpsRelay-cli analyze --service ${matches[0].service} --timeframe 1h`,
-            },
-          ]
-        : [],
+      suggestedRunbooks: [],
     };
 
     await query(

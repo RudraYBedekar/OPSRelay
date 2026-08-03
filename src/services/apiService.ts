@@ -119,19 +119,14 @@ class ApiService {
     return incidents.find(inc => inc.id === id) || null;
   }
 
-  // Save or update an incident
+  // Save quick-add incident (intake + patch approved)
   public async saveIncident(
     incident: Incident,
     shareWithMemberId?: string,
-    options?: { forceDistinct?: boolean; overrideAlertId?: string },
   ): Promise<Incident> {
     await this.checkError();
     if (USE_CRDB) {
-      return crdbClient.saveIncident(incident, {
-        shareWithMemberId,
-        forceDistinct: options?.forceDistinct,
-        overrideAlertId: options?.overrideAlertId,
-      });
+      return crdbClient.saveIncident(incident, { shareWithMemberId });
     }
     const toSave = shareWithMemberId
       ? {
@@ -150,6 +145,71 @@ class ApiService {
 
     localStorage.setItem(STORAGE_KEYS.INCIDENTS, JSON.stringify(incidents));
     return toSave;
+  }
+
+  public async createIntakeIncident(input: { title?: string; rawNotes: string; shareWithMemberId?: string }) {
+    await this.checkError();
+    if (USE_CRDB) return crdbClient.createIntakeIncident(input);
+    const id = `INC-${Date.now()}`;
+    const now = new Date().toISOString();
+    return { id, status: 'INVESTIGATING', analysisStatus: 'not_started', savedAt: now, ...input };
+  }
+
+  public async startAnalysis(incidentId: string, idempotencyKey: string) {
+    await this.checkError();
+    if (USE_CRDB) return crdbClient.startAnalysis(incidentId, idempotencyKey);
+    const result = await this.extractIncidentFromNotes('');
+    return {
+      id: `run-${Date.now()}`,
+      incidentId,
+      status: 'review_required',
+      outputJson: result,
+      confidence: result.confidenceScore,
+      warnings: [],
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  public async getAnalysisCurrent(incidentId: string) {
+    await this.checkError();
+    if (USE_CRDB) return crdbClient.getAnalysisCurrent(incidentId);
+    return { run: null, jobs: [], analysisStatus: 'not_started' };
+  }
+
+  public async approveAnalysis(incidentId: string, runId: string, draft: ExtractionResult) {
+    await this.checkError();
+    if (USE_CRDB) return crdbClient.approveAnalysis(incidentId, runId, draft as unknown as Record<string, unknown>);
+    throw new Error('Approve requires CockroachDB');
+  }
+
+  public async patchIncident(id: string, body: Record<string, unknown>) {
+    await this.checkError();
+    if (USE_CRDB) return crdbClient.patchIncident(id, body);
+    throw new Error('Patch requires CockroachDB');
+  }
+
+  /** Save-first AI intake: persist notes, then run Bedrock extraction. */
+  public async saveAndAnalyzeIntake(rawNotes: string, title?: string) {
+    const idempotencyKey = `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const intake = await this.createIntakeIncident({ rawNotes, title });
+    if (USE_CRDB) {
+      const run = await crdbClient.startAnalysis(intake.id, idempotencyKey);
+      return { intake, run, idempotencyKey };
+    }
+    const result = await this.extractIncidentFromNotes(rawNotes);
+    return {
+      intake,
+      run: {
+        id: `run-${Date.now()}`,
+        incidentId: intake.id,
+        status: 'review_required',
+        outputJson: result,
+        confidence: result.confidenceScore,
+        warnings: [],
+        createdAt: new Date().toISOString(),
+      },
+      idempotencyKey,
+    };
   }
 
   // Update incident status
@@ -586,6 +646,18 @@ class ApiService {
   public async overrideAlertDistinct(alertId: string) {
     if (!USE_CRDB) throw new Error('Alert fatigue requires CockroachDB');
     return crdbClient.overrideAlertDistinct(alertId);
+  }
+
+  public async getInvestigatorStatus() {
+    if (!USE_CRDB) {
+      return { status: 'not_configured' as const, provider: 'cockroachdb-cloud-managed-mcp', readOnly: true, evidenceDatabase: '' };
+    }
+    return crdbClient.getInvestigatorStatus();
+  }
+
+  public async queryInvestigator(question: string, incidentId?: string) {
+    if (!USE_CRDB) throw new Error('MCP investigator requires CockroachDB');
+    return crdbClient.queryInvestigator(question, incidentId);
   }
 }
 

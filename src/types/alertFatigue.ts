@@ -1,23 +1,23 @@
 export type AlertStatus = 'active' | 'noise' | 'resolved';
 
-export interface AlertRecord {
+export interface AlertMatchSummary {
   id: string;
-  alertText: string;
+  linkedIncidentId?: string;
   service: string;
   firstSeen: string;
   lastSeen: string;
   suppressedCount: number;
-  linkedIncidentId?: string;
   status: AlertStatus;
-  distinctOverride: boolean;
-  similarity?: number;
+  similarity: number;
 }
 
-export interface AlertEvaluationResult {
-  suppressed: boolean;
-  matchedAlert?: AlertRecord;
+export interface DuplicateCandidate {
+  state: 'none' | 'checking' | 'candidate' | 'confirmed-distinct' | 'merged' | 'failed';
+  matchedAlertId?: string;
+  matchedIncidentId?: string;
   similarity?: number;
   message?: string;
+  match?: AlertMatchSummary;
 }
 
 export interface AlertIncidentStats {
@@ -30,19 +30,30 @@ export interface AlertIncidentStats {
   summaryMessage: string;
 }
 
-export interface AlertSuppressedResponse {
-  suppressed: true;
-  matchedAlert?: AlertRecord;
-  similarity?: number;
-  message?: string;
+export interface AnalysisRun {
+  id: string;
+  incidentId: string;
+  status: string;
+  outputJson?: import('./incident').ExtractionResult;
+  confidence?: number;
+  warnings: unknown[];
+  errorCode?: string;
+  createdAt: string;
+  completedAt?: string;
+  approvedAt?: string;
 }
 
-export class AlertSuppressedError extends Error {
-  readonly payload: AlertSuppressedResponse;
+export interface AnalysisCurrentResponse {
+  run: AnalysisRun | null;
+  jobs: Array<{ jobType: string; status: string; lastErrorCode?: string }>;
+  analysisStatus: string;
+}
 
-  constructor(payload: AlertSuppressedResponse) {
-    super(payload.message ?? 'Alert suppressed as duplicate noise');
-    this.name = 'AlertSuppressedError';
-    this.payload = payload;
-  }
+export interface IntakeIncidentResponse {
+  id: string;
+  status: string;
+  analysisStatus: string;
+  savedAt?: string;
+  title?: string;
+  rawNotes?: string;
 }

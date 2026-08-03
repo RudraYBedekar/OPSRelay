@@ -5,24 +5,24 @@ export type AlertStatus = 'active' | 'noise' | 'resolved';
 
 export const SIMILARITY_THRESHOLD = 0.85;
 
-export interface AlertRecord {
+export interface AlertMatchSummary {
   id: string;
-  alertText: string;
+  linkedIncidentId?: string;
   service: string;
   firstSeen: string;
   lastSeen: string;
   suppressedCount: number;
-  linkedIncidentId?: string;
   status: AlertStatus;
-  distinctOverride: boolean;
-  similarity?: number;
+  similarity: number;
 }
 
-export interface AlertEvaluationResult {
-  suppressed: boolean;
-  matchedAlert?: AlertRecord;
+export interface DuplicateCandidateResult {
+  state: 'none' | 'candidate';
+  matchedAlertId?: string;
+  matchedIncidentId?: string;
   similarity?: number;
   message?: string;
+  match?: AlertMatchSummary;
 }
 
 export interface AlertIncidentStats {
@@ -39,6 +39,28 @@ function cosineSimilarity(distance: number): number {
   return Math.max(0, 1 - distance);
 }
 
+function mapMatchRow(row: {
+  id: string;
+  service: string;
+  first_seen: string;
+  last_seen: string;
+  suppressed_count: number;
+  linked_incident_id: string | null;
+  status: string;
+  distance: number;
+}): AlertMatchSummary {
+  return {
+    id: row.id,
+    linkedIncidentId: row.linked_incident_id ?? undefined,
+    service: row.service,
+    firstSeen: row.first_seen,
+    lastSeen: row.last_seen,
+    suppressedCount: row.suppressed_count,
+    status: row.status as AlertStatus,
+    similarity: cosineSimilarity(row.distance),
+  };
+}
+
 export function buildAlertText(input: {
   title?: string;
   summary?: string;
@@ -51,136 +73,122 @@ export function buildAlertText(input: {
 async function searchSimilarAlerts(
   alertText: string,
   service: string,
-): Promise<Array<AlertRecord & { similarity: number }>> {
+  ownerMemberId: string,
+): Promise<AlertMatchSummary[]> {
   const embedding = await embedText(alertText);
   const vectorLiteral = vectorToSql(embedding.values);
 
   const rows = await query<{
     id: string;
-    alert_text: string;
     service: string;
     first_seen: string;
     last_seen: string;
     suppressed_count: number;
     linked_incident_id: string | null;
     status: string;
-    distinct_override: boolean;
     distance: number;
   }>(
-    `SELECT id, alert_text, service, first_seen, last_seen, suppressed_count,
-            linked_incident_id, status, distinct_override,
+    `SELECT id, service, first_seen, last_seen, suppressed_count,
+            linked_incident_id, status,
             (embedding <=> $1::VECTOR) AS distance
      FROM alert_embeddings
-     WHERE service = $2
+     WHERE owner_member_id = $3
+       AND owner_member_id IS NOT NULL
+       AND service = $2
        AND last_seen >= now() - INTERVAL '7 days'
      ORDER BY embedding <=> $1::VECTOR
      LIMIT 5`,
-    [vectorLiteral, service],
+    [vectorLiteral, service, ownerMemberId],
   );
 
-  return rows.map((row) => ({
-    id: row.id,
-    alertText: row.alert_text,
-    service: row.service,
-    firstSeen: row.first_seen,
-    lastSeen: row.last_seen,
-    suppressedCount: row.suppressed_count,
-    linkedIncidentId: row.linked_incident_id ?? undefined,
-    status: row.status as AlertStatus,
-    distinctOverride: row.distinct_override,
-    similarity: cosineSimilarity(row.distance),
-  }));
+  return rows.map(mapMatchRow);
 }
 
-export async function evaluateAlert(
+/** Advisory duplicate check — never blocks incident persistence. */
+export async function evaluateDuplicateCandidate(
   alertText: string,
   service: string,
-  options?: { forceDistinct?: boolean; overrideAlertId?: string },
-): Promise<AlertEvaluationResult> {
-  if (!alertText.trim() || !service.trim()) {
-    return { suppressed: false };
+  ownerMemberId: string,
+): Promise<DuplicateCandidateResult> {
+  if (!alertText.trim() || !service.trim() || !ownerMemberId) {
+    return { state: 'none' };
   }
 
-  if (options?.forceDistinct && options.overrideAlertId) {
-    await query(
-      `UPDATE alert_embeddings SET distinct_override = true, status = 'active', last_seen = now()
-       WHERE id = $1`,
-      [options.overrideAlertId],
-    );
-    return { suppressed: false };
-  }
-
-  if (options?.forceDistinct) {
-    return { suppressed: false };
-  }
-
-  const matches = await searchSimilarAlerts(alertText, service);
+  const matches = await searchSimilarAlerts(alertText, service, ownerMemberId);
   const best = matches[0];
 
   if (!best || best.similarity < SIMILARITY_THRESHOLD) {
-    return { suppressed: false };
-  }
-
-  if (best.distinctOverride) {
-    return { suppressed: false };
+    return { state: 'none' };
   }
 
   if (best.status === 'noise' || best.status === 'resolved') {
-    await query(
-      `UPDATE alert_embeddings
-       SET suppressed_count = suppressed_count + 1, last_seen = now()
-       WHERE id = $1`,
-      [best.id],
-    );
-
     const hours = Math.max(1, Math.round(
       (Date.now() - new Date(best.firstSeen).getTime()) / 3600000,
     ));
-
     return {
-      suppressed: true,
-      matchedAlert: { ...best, suppressedCount: best.suppressedCount + 1 },
+      state: 'candidate',
+      matchedAlertId: best.id,
+      matchedIncidentId: best.linkedIncidentId,
       similarity: best.similarity,
-      message: `Duplicate alert suppressed (${Math.round(best.similarity * 100)}% match). `
-        + `This pattern fired ${best.suppressedCount + 1} time(s) in the last ${hours} hour(s).`,
+      match: best,
+      message: `Possible duplicate (${Math.round(best.similarity * 100)}% match). `
+        + `Similar pattern seen ${best.suppressedCount + 1} time(s) in the last ${hours} hour(s).`,
     };
   }
 
-  return { suppressed: false };
+  return { state: 'none' };
 }
 
 export async function recordAlertForIncident(
   alertText: string,
   service: string,
   incidentId: string,
+  ownerMemberId: string,
 ): Promise<string> {
   const embedding = await embedText(alertText);
   const row = await queryOne<{ id: string }>(
-    `INSERT INTO alert_embeddings (alert_text, embedding, service, linked_incident_id, status)
-     VALUES ($1, $2::VECTOR, $3, $4, 'active')
+    `INSERT INTO alert_embeddings (alert_text, embedding, service, linked_incident_id, status, owner_member_id)
+     VALUES ($1, $2::VECTOR, $3, $4, 'active', $5)
      RETURNING id`,
-    [alertText.slice(0, 8000), vectorToSql(embedding.values), service, incidentId],
+    [alertText.slice(0, 8000), vectorToSql(embedding.values), service, incidentId, ownerMemberId],
   );
   return row!.id;
 }
 
-export async function markAlertResolvedForIncident(incidentId: string): Promise<void> {
+export async function markAlertResolvedForIncident(
+  incidentId: string,
+  ownerMemberId: string,
+): Promise<void> {
   await query(
     `UPDATE alert_embeddings SET status = 'resolved', last_seen = now()
-     WHERE linked_incident_id = $1 AND status = 'active'`,
-    [incidentId],
+     WHERE linked_incident_id = $1 AND owner_member_id = $2 AND status = 'active'`,
+    [incidentId, ownerMemberId],
   );
 }
 
-export async function markAlertAsNoise(alertId: string): Promise<void> {
-  await query(
-    `UPDATE alert_embeddings SET status = 'noise', last_seen = now() WHERE id = $1`,
-    [alertId],
+export async function markAlertAsNoise(alertId: string, ownerMemberId: string): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `UPDATE alert_embeddings SET status = 'noise', last_seen = now()
+     WHERE id = $1 AND owner_member_id = $2
+     RETURNING id`,
+    [alertId, ownerMemberId],
   );
+  return rows.length > 0;
+}
+
+export async function markAlertDistinct(alertId: string, ownerMemberId: string): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `UPDATE alert_embeddings SET distinct_override = true, status = 'active', last_seen = now()
+     WHERE id = $1 AND owner_member_id = $2
+     RETURNING id`,
+    [alertId, ownerMemberId],
+  );
+  return rows.length > 0;
 }
 
 export async function getAlertStatsForIncident(
   incidentId: string,
+  ownerMemberId: string,
 ): Promise<AlertIncidentStats | null> {
   const row = await queryOne<{
     id: string;
@@ -191,10 +199,10 @@ export async function getAlertStatsForIncident(
   }>(
     `SELECT id, suppressed_count, first_seen, last_seen, status
      FROM alert_embeddings
-     WHERE linked_incident_id = $1
+     WHERE linked_incident_id = $1 AND owner_member_id = $2
      ORDER BY first_seen ASC
      LIMIT 1`,
-    [incidentId],
+    [incidentId, ownerMemberId],
   );
 
   if (!row) return null;
@@ -214,35 +222,51 @@ export async function getAlertStatsForIncident(
     hoursSinceFirst,
     status: row.status as AlertStatus,
     summaryMessage: totalFires > 1
-      ? `This alert has fired ${totalFires} times in the last ${hoursWindow} hour(s); ${row.suppressed_count} duplicate(s) were suppressed.`
-      : 'First occurrence — no duplicates suppressed yet.',
+      ? `This alert has fired ${totalFires} times in the last ${hoursWindow} hour(s); ${row.suppressed_count} duplicate(s) were flagged.`
+      : 'First occurrence — no duplicates flagged yet.',
   };
 }
 
-export async function getAlertById(alertId: string): Promise<AlertRecord | null> {
+export async function getAlertByIdForOwner(
+  alertId: string,
+  ownerMemberId: string,
+): Promise<AlertMatchSummary | null> {
   const row = await queryOne<{
     id: string;
-    alert_text: string;
     service: string;
     first_seen: string;
     last_seen: string;
     suppressed_count: number;
     linked_incident_id: string | null;
     status: string;
-    distinct_override: boolean;
-  }>('SELECT * FROM alert_embeddings WHERE id = $1', [alertId]);
+  }>(
+    `SELECT id, service, first_seen, last_seen, suppressed_count, linked_incident_id, status
+     FROM alert_embeddings WHERE id = $1 AND owner_member_id = $2`,
+    [alertId, ownerMemberId],
+  );
 
   if (!row) return null;
 
   return {
     id: row.id,
-    alertText: row.alert_text,
+    linkedIncidentId: row.linked_incident_id ?? undefined,
     service: row.service,
     firstSeen: row.first_seen,
     lastSeen: row.last_seen,
     suppressedCount: row.suppressed_count,
-    linkedIncidentId: row.linked_incident_id ?? undefined,
     status: row.status as AlertStatus,
-    distinctOverride: row.distinct_override,
+    similarity: 1,
   };
+}
+
+export async function incrementSuppressedCount(
+  alertId: string,
+  ownerMemberId: string,
+): Promise<void> {
+  await query(
+    `UPDATE alert_embeddings
+     SET suppressed_count = suppressed_count + 1, last_seen = now()
+     WHERE id = $1 AND owner_member_id = $2`,
+    [alertId, ownerMemberId],
+  );
 }

@@ -110,6 +110,26 @@ export function canManageTasks(
   return canEditIncident(incident, viewer);
 }
 
+export function canViewAlertForIncident(
+  incident: { ownerMemberId?: string; sharedWithMemberIds?: string[] },
+  viewer: AuthUser | undefined,
+  grantedOwnerIds: Set<string>,
+): boolean {
+  return canViewIncident(incident, viewer, grantedOwnerIds);
+}
+
+export function canManageAlertForIncident(
+  incident: { ownerMemberId?: string },
+  viewer: AuthUser | undefined,
+): boolean {
+  return canEditIncident(incident, viewer);
+}
+
+export function canUseInvestigator(viewer: AuthUser | undefined): boolean {
+  if (!isAuthEnabled() || !viewer) return true;
+  return viewer.role === 'admin' || viewer.role === 'operator';
+}
+
 export function canReindexCorpus(viewer: AuthUser | undefined): boolean {
   if (!isAuthEnabled() || !viewer) return true;
   return viewer.role === 'admin';

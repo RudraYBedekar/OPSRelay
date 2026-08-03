@@ -3,9 +3,13 @@ import type { Incident, IncidentStatus } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { StatusBadge } from '../common/StatusBadge';
 import { MemorySourceCard } from '../agent/MemorySourceCard';
-import { AlertFatigueCard } from '../alerts/AlertFatigueCard';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Server, User, Bot } from 'lucide-react';
+import { AlertFatigueCard } from '../alerts/AlertFatigueCard';
+import { DuplicateCandidateBanner } from '../alerts/DuplicateCandidateBanner';
+import { McpCitationCard } from '../agent/McpCitationCard';
+import { apiService } from '../../services/apiService';
+import { useToast } from '../common/Toast';
+import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Server, User, Bot, Search, Loader2 } from 'lucide-react';
 import { timeAgo, formatDate } from '../../utils/formatters';
 
 interface IncidentDetailViewProps {
@@ -21,13 +25,46 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
   onUpdateStatus,
   onInspectIncident,
 }) => {
+  const { toast } = useToast();
   const [showRaw, setShowRaw] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<IncidentStatus | null>(null);
+  const [mcpQuestion, setMcpQuestion] = useState('');
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpResult, setMcpResult] = useState<Awaited<ReturnType<typeof apiService.queryInvestigator>> | null>(null);
+  const [distinctBusy, setDistinctBusy] = useState(false);
+  const [dismissDuplicate, setDismissDuplicate] = useState(false);
 
   const confirmStatus = () => {
     if (pendingStatus) {
       onUpdateStatus(incident.id, pendingStatus);
       setPendingStatus(null);
+    }
+  };
+
+  const runMcpInvestigation = async () => {
+    if (!mcpQuestion.trim()) return;
+    setMcpLoading(true);
+    try {
+      setMcpResult(await apiService.queryInvestigator(mcpQuestion.trim(), incident.id));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Investigation failed', 'error');
+    } finally {
+      setMcpLoading(false);
+    }
+  };
+
+  const markDistinct = async () => {
+    const alertId = incident.duplicateCandidate?.matchedAlertId;
+    if (!alertId) return;
+    setDistinctBusy(true);
+    try {
+      await apiService.overrideAlertDistinct(alertId);
+      setDismissDuplicate(true);
+      toast('Marked as distinct incident', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Update failed', 'error');
+    } finally {
+      setDistinctBusy(false);
     }
   };
 
@@ -72,7 +109,57 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
         </div>
       </div>
 
+      {incident.duplicateCandidate?.state === 'candidate' && !dismissDuplicate && (
+        <DuplicateCandidateBanner
+          candidate={incident.duplicateCandidate}
+          incidentId={incident.id}
+          onMarkDistinct={() => void markDistinct()}
+          onDismiss={() => setDismissDuplicate(true)}
+          busy={distinctBusy}
+        />
+      )}
+
       <AlertFatigueCard incidentId={incident.id} />
+
+      {apiService.isUsingCrdb() && (
+        <div className="ops-card p-5 md:p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-brand" aria-hidden />
+            <h2 className="text-sm font-semibold text-ops-text">Investigate with MCP</h2>
+          </div>
+          <p className="text-xs text-ops-subtext">
+            Read-only query against approved incident evidence in CockroachDB Managed MCP.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={mcpQuestion}
+              onChange={(e) => setMcpQuestion(e.target.value)}
+              className="ops-input flex-1 text-sm"
+              placeholder="Which approved resolutions match this service?"
+            />
+            <button
+              type="button"
+              onClick={() => void runMcpInvestigation()}
+              disabled={mcpLoading || !mcpQuestion.trim()}
+              className="ops-btn-primary min-h-[44px] text-sm"
+            >
+              {mcpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Query'}
+            </button>
+          </div>
+          {mcpResult && (
+            <div className="space-y-3">
+              <p className="text-sm text-ops-text whitespace-pre-wrap">{mcpResult.answer}</p>
+              {mcpResult.citations.length > 0 && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {mcpResult.citations.map((c) => (
+                    <McpCitationCard key={c.citationId} citation={c} onInspectIncident={onInspectIncident} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {incident.timeline.length > 0 && (
         <div className="ops-card p-5 md:p-6">

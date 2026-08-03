@@ -1,0 +1,41 @@
+import { Router } from 'express';
+import { getMcpHealth } from '../config/mcp.js';
+import { runInvestigation } from '../services/investigatorService.js';
+import { canUseInvestigator } from '../services/incidentAccessService.js';
+import { isAuthEnabled } from '../config/auth.js';
+
+export const investigatorRouter = Router();
+
+investigatorRouter.get('/status', (req, res) => {
+  if (isAuthEnabled() && req.user && !canUseInvestigator(req.user)) {
+    res.status(403).json({ error: 'Investigator access denied' });
+    return;
+  }
+  res.json(getMcpHealth());
+});
+
+investigatorRouter.post('/query', async (req, res, next) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    const { question, incidentId } = req.body as { question?: string; incidentId?: string };
+    if (!question?.trim()) {
+      res.status(400).json({ error: 'question is required' });
+      return;
+    }
+    if (question.length > 2000) {
+      res.status(400).json({ error: 'question too long' });
+      return;
+    }
+    res.json(await runInvestigation(question.trim(), req.user, incidentId?.trim()));
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status) {
+      res.status(status).json({ error: err instanceof Error ? err.message : 'Investigation failed' });
+      return;
+    }
+    next(err);
+  }
+});

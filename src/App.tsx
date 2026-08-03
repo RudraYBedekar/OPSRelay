@@ -16,7 +16,6 @@ import { AuthGate } from './components/auth/AuthGate';
 import { AccessPanel } from './components/access/AccessPanel';
 import { SendToEmployeePanel } from './components/share/SendToEmployeePanel';
 import { TeamChatPanel } from './components/chat/TeamChatPanel';
-import { AlertSuppressedBanner } from './components/alerts/AlertSuppressedBanner';
 import { useToast } from './components/common/Toast';
 import { useAuth } from './context/AuthContext';
 import { firstName } from './utils/avatar';
@@ -30,7 +29,7 @@ import type {
   TaskStatus,
 } from './types/incident';
 import { apiService } from './services/apiService';
-import { AlertSuppressedError, type AlertSuppressedResponse } from './types/alertFatigue';
+import type { AnalysisRun } from './types/alertFatigue';
 import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents, buildLiveHandoffSummaries } from './utils/dashboardMetrics';
 
 const PAGE: Record<NavTab, { title: string; description: string }> = {
@@ -75,10 +74,15 @@ export const App: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [tasks, setTasks] = useState<ActionItemTask[]>([]);
 
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [intakeMode, setIntakeMode] = useState<IntakeMode>('quick');
   const [extractionResult, setExtractionResult] = useState<ExtractionResult | null>(null);
   const [lastRawNotes, setLastRawNotes] = useState('');
+  const [savedIncidentId, setSavedIncidentId] = useState<string | null>(null);
+  const [analysisRun, setAnalysisRun] = useState<AnalysisRun | null>(null);
+  const [analysisJobs, setAnalysisJobs] = useState<Array<{ jobType: string; status: string }>>([]);
+  const [analysisFailed, setAnalysisFailed] = useState(false);
+  const [lastIdempotencyKey, setLastIdempotencyKey] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,14 +91,8 @@ export const App: React.FC = () => {
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const [accessPanelOpen, setAccessPanelOpen] = useState(false);
-  const [alertSuppression, setAlertSuppression] = useState<AlertSuppressedResponse | null>(null);
-  const [pendingSave, setPendingSave] = useState<{
-    incident: Incident;
-    shareWithMemberId?: string;
-  } | null>(null);
-  const [forceSaveBusy, setForceSaveBusy] = useState(false);
 
-  const intakeStep: 1 | 2 | 3 = extractionResult ? 3 : isExtracting ? 2 : 1;
+  const intakeStep: 1 | 2 | 3 = extractionResult ? 3 : isAnalyzing ? 2 : 1;
 
   const loadDashboardData = async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -172,49 +170,113 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleRunExtraction = async (rawNotes: string) => {
-    setIsExtracting(true);
-    setError(null);
+  const resetIntakeFlow = () => {
     setExtractionResult(null);
-    setLastRawNotes(rawNotes);
-    try {
-      setExtractionResult(await apiService.extractIncidentFromNotes(rawNotes));
-      toast('AI extraction complete — review and save', 'success');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Extraction failed');
-      toast('Extraction failed', 'error');
-    } finally {
-      setIsExtracting(false);
+    setSavedIncidentId(null);
+    setAnalysisRun(null);
+    setAnalysisJobs([]);
+    setAnalysisFailed(false);
+    setLastIdempotencyKey(null);
+    setLastRawNotes('');
+  };
+
+  const pollAnalysis = async (incidentId: string) => {
+    const current = await apiService.getAnalysisCurrent(incidentId);
+    setAnalysisJobs(current.jobs ?? []);
+    if (current.run?.status === 'review_required' && current.run.outputJson) {
+      setAnalysisRun(current.run);
+      setExtractionResult(current.run.outputJson as ExtractionResult);
+      setAnalysisFailed(false);
+      toast('Incident saved — AI draft ready for review', 'success');
+      return;
+    }
+    if (current.run?.status === 'failed') {
+      setAnalysisRun(current.run);
+      setAnalysisFailed(true);
+      toast('Analysis failed — incident is still saved', 'error');
+      return;
+    }
+    if (current.run?.status === 'running') {
+      await new Promise((r) => setTimeout(r, 1500));
+      return pollAnalysis(incidentId);
     }
   };
 
-  const completeIncidentSave = async (
-    saved: Incident,
-    shareWithMemberId?: string,
-  ) => {
-    await refreshIncidents(saved);
-    await refreshTasks();
-    await loadDashboardData({ silent: true });
-    setAlertSuppression(null);
-    setPendingSave(null);
-    toast(
-      shareWithMemberId
-        ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
-        : `Incident ${saved.id} saved`,
-      'success',
-    );
+  const handleSaveAndAnalyze = async (rawNotes: string) => {
+    setIsAnalyzing(true);
+    setError(null);
+    resetIntakeFlow();
+    setLastRawNotes(rawNotes);
+    try {
+      const { intake, run, idempotencyKey } = await apiService.saveAndAnalyzeIntake(rawNotes);
+      setSavedIncidentId(intake.id);
+      setLastIdempotencyKey(idempotencyKey);
+      if (run.status === 'review_required' && run.outputJson) {
+        setAnalysisRun(run);
+        setExtractionResult(run.outputJson as ExtractionResult);
+        toast('Incident saved — AI draft ready for review', 'success');
+      } else if (run.status === 'failed') {
+        setAnalysisRun(run);
+        setAnalysisFailed(true);
+        toast('Analysis failed — incident is still saved', 'error');
+      } else {
+        await pollAnalysis(intake.id);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Save and analyze failed');
+      toast('Save and analyze failed', 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  const handleSaveExtractedIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
+  const handleRetryAnalysis = async () => {
+    if (!savedIncidentId || !lastIdempotencyKey) return;
+    setIsAnalyzing(true);
+    try {
+      const key = `${lastIdempotencyKey}-retry-${Date.now()}`;
+      const run = await apiService.startAnalysis(savedIncidentId, key);
+      setAnalysisRun(run);
+      if (run.status === 'review_required' && run.outputJson) {
+        setExtractionResult(run.outputJson as ExtractionResult);
+        setAnalysisFailed(false);
+      } else {
+        await pollAnalysis(savedIncidentId);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Retry failed');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleApproveExtracted = async (
+    incidentId: string,
+    runId: string,
+    draft: ExtractionResult,
+    shareWithMemberId?: string,
+  ) => {
+    const saved = await apiService.approveAnalysis(incidentId, runId, draft);
+    if (shareWithMemberId && apiService.isUsingCrdb()) {
+      await apiService.shareIncidentWithMember(incidentId, shareWithMemberId);
+    }
+    await refreshIncidents(saved as Incident);
+    await refreshTasks();
+    await loadDashboardData({ silent: true });
+    const current = await apiService.getAnalysisCurrent(incidentId);
+    setAnalysisJobs(current.jobs ?? []);
+    setSelectedIncident(saved as Incident);
+    setActiveTab('dashboard');
+    resetIntakeFlow();
+    toast(`Incident ${incidentId} approved and finalized`, 'success');
+  };
+
+  const handleQuickSaveIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
     try {
       const saved = await apiService.saveIncident(newIncident, shareWithMemberId);
       await refreshIncidents(saved);
       await refreshTasks();
       await loadDashboardData({ silent: true });
-      setSelectedIncident(saved);
-      setActiveTab('dashboard');
-      setAlertSuppression(null);
-      setPendingSave(null);
       toast(
         shareWithMemberId
           ? `Incident ${saved.id} saved and sent to ${shareWithMemberId}`
@@ -222,52 +284,9 @@ export const App: React.FC = () => {
         'success',
       );
     } catch (err: unknown) {
-      if (err instanceof AlertSuppressedError) {
-        setAlertSuppression(err.payload);
-        setPendingSave({ incident: newIncident, shareWithMemberId });
-        toast('Duplicate alert suppressed', 'error');
-        return;
-      }
       setError(err instanceof Error ? err.message : 'Save failed');
       toast('Save failed', 'error');
       throw err;
-    }
-  };
-
-  const handleQuickSaveIncident = async (newIncident: Incident, shareWithMemberId?: string) => {
-    try {
-      const saved = await apiService.saveIncident(newIncident, shareWithMemberId);
-      await completeIncidentSave(saved, shareWithMemberId);
-    } catch (err: unknown) {
-      if (err instanceof AlertSuppressedError) {
-        setAlertSuppression(err.payload);
-        setPendingSave({ incident: newIncident, shareWithMemberId });
-        toast('Duplicate alert suppressed', 'error');
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'Save failed');
-      toast('Save failed', 'error');
-      throw err;
-    }
-  };
-
-  const handleForceDistinctSave = async () => {
-    if (!pendingSave || !alertSuppression?.matchedAlert?.id) return;
-    setForceSaveBusy(true);
-    try {
-      await apiService.overrideAlertDistinct(alertSuppression.matchedAlert.id);
-      const saved = await apiService.saveIncident(
-        pendingSave.incident,
-        pendingSave.shareWithMemberId,
-        { forceDistinct: true, overrideAlertId: alertSuppression.matchedAlert.id },
-      );
-      await completeIncidentSave(saved, pendingSave.shareWithMemberId);
-      setActiveTab('dashboard');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-      toast('Save failed', 'error');
-    } finally {
-      setForceSaveBusy(false);
     }
   };
 
@@ -388,17 +407,6 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {alertSuppression && (
-        <div className="mb-5">
-          <AlertSuppressedBanner
-            suppression={alertSuppression}
-            onCreateAnyway={() => void handleForceDistinctSave()}
-            onDismiss={() => { setAlertSuppression(null); setPendingSave(null); }}
-            busy={forceSaveBusy}
-          />
-        </div>
-      )}
-
       {isLoading && !error ? (
         <LoadingSkeleton type="table" />
       ) : selectedIncident ? (
@@ -465,17 +473,22 @@ export const App: React.FC = () => {
             <IntakePanel
               mode={intakeMode}
               onModeChange={setIntakeMode}
-              onExtract={handleRunExtraction}
-              isExtracting={isExtracting}
+              onSaveAndAnalyze={handleSaveAndAnalyze}
+              isAnalyzing={isAnalyzing}
               step={intakeStep}
               onQuickSave={handleQuickSaveIncident}
               onSaveSampleLog={handleSaveSampleLog}
               defaultOwner={displayName}
               senderMemberId={user?.memberId}
               extractionResult={extractionResult}
+              savedIncidentId={savedIncidentId ?? undefined}
+              analysisRun={analysisRun}
+              analysisJobs={analysisJobs}
               lastRawNotes={lastRawNotes}
-              onSaveExtracted={handleSaveExtractedIncident}
-              onResetExtraction={() => setExtractionResult(null)}
+              onApproveExtracted={handleApproveExtracted}
+              onRetryAnalysis={() => void handleRetryAnalysis()}
+              onResetExtraction={resetIntakeFlow}
+              analysisFailed={analysisFailed}
             />
           )}
 
