@@ -207,24 +207,40 @@ export const App: React.FC = () => {
     setError(null);
     resetIntakeFlow();
     setLastRawNotes(rawNotes);
+
+    let incidentId: string | null = null;
     try {
-      const { intake, run, idempotencyKey } = await apiService.saveAndAnalyzeIntake(rawNotes);
+      const intake = await apiService.createIntakeIncident({ rawNotes });
+      incidentId = intake.id;
       setSavedIncidentId(intake.id);
-      setLastIdempotencyKey(idempotencyKey);
+      toast(`Incident ${intake.id} saved`, 'success');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+      toast('Save failed', 'error');
+      setIsAnalyzing(false);
+      return;
+    }
+
+    const idempotencyKey = `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setLastIdempotencyKey(idempotencyKey);
+
+    try {
+      const run = await apiService.startAnalysis(incidentId, idempotencyKey);
+      setAnalysisRun(run);
       if (run.status === 'review_required' && run.outputJson) {
-        setAnalysisRun(run);
         setExtractionResult(run.outputJson as ExtractionResult);
+        setAnalysisFailed(false);
         toast('Incident saved — AI draft ready for review', 'success');
       } else if (run.status === 'failed') {
-        setAnalysisRun(run);
         setAnalysisFailed(true);
-        toast('Analysis failed — incident is still saved', 'error');
+        toast('Analysis failed — incident is still saved. You can retry.', 'error');
       } else {
-        await pollAnalysis(intake.id);
+        await pollAnalysis(incidentId);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Save and analyze failed');
-      toast('Save and analyze failed', 'error');
+      setAnalysisFailed(true);
+      toast('Analysis failed — incident is still saved. You can retry.', 'error');
+      setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
       setIsAnalyzing(false);
     }

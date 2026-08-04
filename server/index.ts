@@ -17,17 +17,12 @@ import { accessRouter } from './routes/access.js';
 import { alertsRouter } from './routes/alerts.js';
 import { analysisRouter } from './routes/analysis.js';
 import { investigatorRouter } from './routes/investigator.js';
-import { runVersionedMigrations } from './migrations/runVersionedMigrations.js';
 import { startJobWorker } from './services/jobWorker.js';
 import { teamChatRouter } from './routes/teamChat.js';
-import { migrateTeamChatSchema } from './services/teamChatMigration.js';
-import { migrateTeamChatImageSchema } from './services/teamChatImageMigration.js';
-import { migrateAlertFatigueSchema } from './services/alertFatigueMigration.js';
-import { migrateEmbeddingProvenanceSchema } from './services/embeddingProvenanceMigration.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
 import { isAuthEnabled } from './config/auth.js';
-import { migrateSecureAuthSchema } from './services/authMigration.js';
-import { migrateAccessSchema } from './services/incidentAccessService.js';
+import { getMcpHealth } from './config/mcp.js';
+import { checkSchemaReadiness } from './config/schemaReadiness.js';
 import { getEmbeddingCount } from './services/vectorService.js';
 import { testBedrockConnection } from './services/llmService.js';
 import { securityHeaders } from './middleware/security.js';
@@ -36,11 +31,36 @@ import { sanitizeErrorForClient, logServerError } from './utils/sanitizeError.js
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3001);
+const isProduction = process.env.NODE_ENV === 'production';
 
 const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()).filter(Boolean);
+if (isProduction && !corsOrigins?.length) {
+  console.error('CORS_ORIGIN must be set in production (exact origin list).');
+  process.exit(1);
+}
 app.use(cors(corsOrigins?.length ? { origin: corsOrigins } : undefined));
 app.use(securityHeaders);
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/api/health/live', (_req, res) => {
+  res.json({ status: 'live', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health/ready', async (_req, res) => {
+  const schema = await checkSchemaReadiness();
+  if (!schema.ready) {
+    res.status(503).json({
+      status: 'not_ready',
+      code: schema.code ?? 'SCHEMA_UPGRADE_REQUIRED',
+    });
+    return;
+  }
+  res.json({
+    status: 'ready',
+    schemaVersion: schema.currentVersion,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -52,7 +72,9 @@ app.get('/api/health', async (_req, res) => {
     } catch {
       secureDbOk = false;
     }
+    const schema = await checkSchemaReadiness();
     const embeddingCount = await getEmbeddingCount().catch(() => 0);
+    const mcp = getMcpHealth();
 
     let bedrock: {
       enabled: boolean;
@@ -72,13 +94,20 @@ app.get('/api/health', async (_req, res) => {
       };
     }
 
-    res.json({
-      status: 'ok',
+    res.status(schema.ready ? 200 : 503).json({
+      status: schema.ready ? 'ok' : 'degraded',
       database: CRDB_DATABASE,
       secureDatabase: { name: CRDB_SECURE_DATABASE, connected: secureDbOk },
       auth: { enabled: isAuthEnabled() },
       bedrock,
+      mcp: {
+        status: mcp.status,
+        mode: mcp.mode,
+        provider: mcp.provider,
+        readOnly: true,
+      },
       vectors: { embeddingCount, dimensions: bedrockConfig.embedDimensions },
+      schema: { ready: schema.ready, version: schema.currentVersion },
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -125,57 +154,23 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(status).json({ error: message, ...(code ? { code } : {}) });
 });
 
-app.listen(PORT, async () => {
+async function boot(): Promise<void> {
   console.log(`OpsRelay API listening on http://localhost:${PORT}`);
   console.log(`Auth: ${isAuthEnabled() ? 'ENABLED (JWT)' : 'disabled'}`);
   console.log(`Bedrock: ${isBedrockConfigured() ? 'ENABLED' : 'disabled (fallback mode)'}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
+  console.log('Schema DDL is not run at startup — use npm run db:migrate');
 
-  try {
-    const applied = await runVersionedMigrations();
-    if (applied.length) console.log('Versioned migrations applied:', applied.join(', '));
-  } catch (err) {
-    console.warn('Versioned migrations skipped:', err instanceof Error ? err.message : err);
+  const schema = await checkSchemaReadiness();
+  if (!schema.ready) {
+    console.warn(`Schema not ready (${schema.code}). Worker deferred until migrations are applied.`);
+    return;
   }
 
   startJobWorker();
   console.log('Background job worker started (15s interval)');
+}
 
-  try {
-    await migrateEmbeddingProvenanceSchema();
-    console.log('Embedding provenance columns ready');
-  } catch (err) {
-    console.warn('Embedding provenance migration skipped:', err instanceof Error ? err.message : err);
-  }
-
-  try {
-    await migrateTeamChatImageSchema();
-    console.log('Team chat image columns ready');
-  } catch (err) {
-    console.warn('Team chat image migration skipped:', err instanceof Error ? err.message : err);
-  }
-
-  try {
-    await migrateTeamChatSchema();
-    console.log('Team chat schema ready (messages, timed guests)');
-  } catch (err) {
-    console.warn('Team chat schema migration skipped:', err instanceof Error ? err.message : err);
-  }
-
-  try {
-    await migrateAlertFatigueSchema();
-    console.log('Alert fatigue schema ready (alert_embeddings + vector index)');
-  } catch (err) {
-    console.warn('Alert fatigue schema migration skipped:', err instanceof Error ? err.message : err);
-  }
-
-  if (isAuthEnabled()) {
-    try {
-      await migrateSecureAuthSchema();
-      await migrateAccessSchema();
-      console.log('SecureData auth schema: member_id + access sharing ready');
-    } catch (err) {
-      console.warn('SecureData auth migration skipped:', err instanceof Error ? err.message : err);
-    }
-  }
+app.listen(PORT, () => {
+  void boot();
 });

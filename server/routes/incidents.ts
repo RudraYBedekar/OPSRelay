@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, withTransaction, queryWithClient } from '../db.js';
 import { indexIncident, type IncidentRecord } from '../services/vectorService.js';
-import { normalizeIncidentForSave } from '../utils/incidentTasks.js';
+import { normalizeIncidentForSave, type IncidentWithTasks } from '../utils/incidentTasks.js';
 import { scanAndRedactSecrets, assertNotesSafeForProcessing } from '../utils/redactSecrets.js';
 import {
   canViewIncident,
@@ -14,9 +14,20 @@ import {
 import { isAuthEnabled } from '../config/auth.js';
 import { createIntakeIncident } from '../services/analysisService.js';
 import { markAlertResolvedForIncident } from '../services/alertFatigueService.js';
-import { enqueuePostApprovalJobs } from '../services/incidentJobService.js';
 
 export const incidentsRouter = Router();
+
+type StoredIncident = IncidentRecord & IncidentWithTasks & {
+  ownerMemberId?: string;
+  ownerName?: string;
+  analysisStatus?: string;
+  rawNotes?: string;
+  sharedWithMemberIds?: string[];
+};
+
+function asStoredIncident(data: Record<string, unknown>): StoredIncident {
+  return data as unknown as StoredIncident;
+}
 
 incidentsRouter.get('/', async (req, res, next) => {
   try {
@@ -24,7 +35,7 @@ incidentsRouter.get('/', async (req, res, next) => {
       'SELECT data, updated_at FROM incidents ORDER BY updated_at DESC',
     );
     const all = rows.map((r) => ({
-      ...r.data,
+      ...asStoredIncident(r.data),
       updatedAt: r.updated_at,
     }));
     res.json(await filterIncidentsForUser(all, req.user));
@@ -106,7 +117,7 @@ incidentsRouter.post('/', async (req, res, next) => {
   }
 });
 
-/** Update an existing incident — owner/editor only. */
+/** Update an existing incident — owner/editor only. Approval must use analysis approve endpoint. */
 incidentsRouter.patch('/:id', async (req, res, next) => {
   try {
     const row = await queryOne<{ data: Record<string, unknown> }>(
@@ -118,32 +129,32 @@ incidentsRouter.patch('/:id', async (req, res, next) => {
       return;
     }
 
-    const existing = row.data as IncidentRecord & {
-      ownerMemberId?: string;
-      ownerName?: string;
-      analysisStatus?: string;
-    };
+    const existing = asStoredIncident(row.data);
     if (isAuthEnabled() && req.user && !canEditIncident(existing, req.user)) {
       res.status(404).json({ error: `Incident ${req.params.id} not found` });
       return;
     }
 
-    const wasApproved = existing.analysisStatus === 'approved';
+    const body = req.body as Record<string, unknown>;
+    // Approval is only allowed via POST /incidents/:id/analysis/:runId/approve
+    if ('analysisStatus' in body) {
+      delete body.analysisStatus;
+    }
 
-    const incident = normalizeIncidentForSave({
+    const merged = {
       ...existing,
-      ...req.body,
+      ...body,
       id: req.params.id,
-    } as IncidentRecord & { id: string });
+      analysisStatus: existing.analysisStatus,
+      ownerMemberId: existing.ownerMemberId,
+      ownerName: existing.ownerName,
+    } as StoredIncident;
 
-    incident.id = req.params.id;
-    if (existing.ownerMemberId) incident.ownerMemberId = existing.ownerMemberId;
-    if (existing.ownerName) incident.ownerName = existing.ownerName;
+    const incident = normalizeIncidentForSave(merged);
 
-    const rawNotes = (incident as { rawNotes?: string }).rawNotes;
-    if (rawNotes?.trim()) {
-      assertNotesSafeForProcessing(rawNotes);
-      (incident as { rawNotes?: string }).rawNotes = scanAndRedactSecrets(rawNotes).redactedText;
+    if (incident.rawNotes?.trim()) {
+      assertNotesSafeForProcessing(incident.rawNotes);
+      incident.rawNotes = scanAndRedactSecrets(incident.rawNotes).redactedText;
     }
 
     if (Array.isArray(incident.tasks)) {
@@ -162,11 +173,16 @@ incidentsRouter.patch('/:id', async (req, res, next) => {
       );
     });
 
-    const nowApproved = incident.analysisStatus === 'approved';
-    if (!wasApproved && nowApproved) {
-      await enqueuePostApprovalJobs(incident.id);
-    } else if (nowApproved && req.body.reindex === true) {
-      indexIncident(incident).catch((err) =>
+    if (body.reindex === true && existing.analysisStatus === 'approved') {
+      const record: IncidentRecord = {
+        id: incident.id,
+        title: incident.title,
+        service: incident.service ?? 'general',
+        severity: incident.severity,
+        summary: incident.summary ?? incident.title,
+        rawNotes: incident.rawNotes,
+      };
+      indexIncident(record).catch((err) =>
         console.warn(`Vector re-index failed for ${incident.id}:`, err instanceof Error ? err.message : err),
       );
     }

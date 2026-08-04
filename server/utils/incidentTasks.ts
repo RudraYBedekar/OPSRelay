@@ -19,8 +19,14 @@ export interface IncidentWithTasks {
   title: string;
   severity: Severity;
   status: string;
+  service?: string;
+  summary?: string;
   leadSRE?: string;
   createdAt?: string;
+  ownerMemberId?: string;
+  ownerName?: string;
+  sharedWithMemberIds?: string[];
+  analysisStatus?: string;
   tasks?: IncidentTask[];
 }
 

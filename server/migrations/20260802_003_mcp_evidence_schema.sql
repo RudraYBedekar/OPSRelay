@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS incident_evidence (
 CREATE INDEX IF NOT EXISTS idx_evidence_service_status
   ON incident_evidence (service, status, source_updated_at DESC);
 
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  version     STRING PRIMARY KEY,
-  applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+ALTER TABLE incident_evidence ADD COLUMN IF NOT EXISTS content_hash STRING;
+ALTER TABLE incident_evidence ADD COLUMN IF NOT EXISTS source_owner_scope STRING;
+

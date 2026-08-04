@@ -19,54 +19,65 @@ export interface McpCitation {
   service: string;
   field: string;
   excerpt: string;
-  source: 'cockroachdb-managed-mcp';
+  source: 'cockroachdb-managed-mcp' | 'local-sql-demo';
+  provider: string;
   retrievedAt: string;
+  evidenceVersion?: number;
 }
 
 export interface InvestigationResult {
   answer: string;
   readOnly: true;
-  provider: 'cockroachdb-cloud-managed-mcp';
+  provider: string;
+  transport: string;
   queryTemplateId: string;
   toolsUsed: string[];
   citations: McpCitation[];
 }
 
-function rowToCitations(rows: EvidenceRow[]): McpCitation[] {
+function rowToCitations(
+  rows: EvidenceRow[],
+  source: McpCitation['source'],
+  provider: string,
+): McpCitation[] {
   const now = new Date().toISOString();
   return rows.flatMap((row) => {
-    const citations: McpCitation[] = [];
-    const base = {
+    const fields: Array<{ field: string; excerpt?: string }> = [
+      { field: 'approved_summary', excerpt: row.approved_summary },
+      { field: 'approved_resolution', excerpt: row.approved_resolution },
+      { field: 'task_summary', excerpt: row.task_summary },
+    ];
+    const first = fields.find((f) => f.excerpt?.trim());
+    if (!first?.excerpt) return [];
+    return [{
       citationId: row.citation_id,
       incidentId: row.incident_id,
       title: row.title,
       service: row.service,
-      source: 'cockroachdb-managed-mcp' as const,
+      field: first.field,
+      excerpt: first.excerpt.slice(0, 280),
+      source,
+      provider,
       retrievedAt: now,
-    };
-    if (row.approved_summary) {
-      citations.push({
-        ...base,
-        field: 'approved_summary',
-        excerpt: row.approved_summary.slice(0, 280),
-      });
-    }
-    if (row.approved_resolution) {
-      citations.push({
-        ...base,
-        field: 'approved_resolution',
-        excerpt: row.approved_resolution.slice(0, 280),
-      });
-    }
-    if (row.task_summary) {
-      citations.push({
-        ...base,
-        field: 'task_summary',
-        excerpt: row.task_summary.slice(0, 280),
-      });
-    }
-    return citations.slice(0, 1);
+      evidenceVersion: row.evidence_version,
+    }];
   });
+}
+
+function groundAnswer(answer: string, citations: McpCitation[]): string {
+  if (citations.length === 0) {
+    return 'No approved evidence citations were returned for this query.';
+  }
+  const allowed = new Set(citations.map((c) => c.citationId));
+  // Drop model-invented citation markers that are not in retrieved evidence
+  const cleaned = answer.replace(/\[([^\]]+)\]/g, (match, id: string) => (
+    allowed.has(id) ? match : ''
+  )).replace(/\s{2,}/g, ' ').trim();
+
+  if (!cleaned || !citations.some((c) => cleaned.includes(c.citationId) || cleaned.includes(c.excerpt.slice(0, 40)))) {
+    return citations.map((c) => `[${c.citationId}] ${c.excerpt}`).join('\n\n');
+  }
+  return cleaned;
 }
 
 export async function runInvestigation(
@@ -79,7 +90,7 @@ export async function runInvestigation(
   }
 
   const health = getMcpHealth();
-  if (health.status === 'not_configured') {
+  if (health.status === 'not_configured' && health.mode === 'disabled') {
     throw Object.assign(new Error('MCP investigator is not configured'), { status: 503 });
   }
 
@@ -102,12 +113,14 @@ export async function runInvestigation(
 
   const intent = inferIntent(question);
   const spec = buildInvestigationQuery(intent, service, 10);
-  const rows = await executeViaManagedMcp(spec);
-  const citations = rowToCitations(rows);
+  const result = await executeViaManagedMcp(spec);
+  const source: McpCitation['source'] =
+    result.transport === 'managed_mcp' ? 'cockroachdb-managed-mcp' : 'local-sql-demo';
+  const citations = rowToCitations(result.rows, source, result.provider);
 
   let answer: string;
   if (citations.length === 0) {
-    answer = 'No approved MCP evidence found for this service. Only human-approved incidents are projected to the evidence store.';
+    answer = 'No approved evidence found for this service. Only human-approved incidents are projected to the evidence store.';
   } else if (isBedrockConfigured()) {
     try {
       const evidenceContext = citations.map((c) => ({
@@ -116,10 +129,14 @@ export async function runInvestigation(
         field: c.field,
         excerpt: c.excerpt,
       }));
-      answer = await generateAgentResponse(question, {
-        similarIncidents: [],
-        activeIncident: { summary: JSON.stringify(evidenceContext), service },
-      });
+      const raw = await generateAgentResponse(
+        `${question}\n\nOnly cite these citation IDs: ${citations.map((c) => c.citationId).join(', ')}`,
+        {
+          similarIncidents: [],
+          activeIncident: { summary: JSON.stringify(evidenceContext), service },
+        },
+      );
+      answer = groundAnswer(raw, citations);
     } catch {
       answer = citations.map((c) => `[${c.citationId}] ${c.excerpt}`).join('\n\n');
     }
@@ -130,9 +147,10 @@ export async function runInvestigation(
   return {
     answer,
     readOnly: true,
-    provider: 'cockroachdb-cloud-managed-mcp',
+    provider: result.provider,
+    transport: result.transport,
     queryTemplateId: spec.templateId,
-    toolsUsed: ['select_query'],
+    toolsUsed: result.toolsUsed,
     citations,
   };
 }

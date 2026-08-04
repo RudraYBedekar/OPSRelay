@@ -2,6 +2,12 @@ import { secureQuery, secureQueryOne } from '../secureDb.js';
 import { isAuthEnabled } from '../config/auth.js';
 import type { AuthUser } from './authService.js';
 
+/** Minimal identity for access checks (avoids requiring full AuthUser). */
+export interface AccessViewer {
+  memberId: string;
+  role: string;
+}
+
 export interface AccessRequest {
   id: string;
   requesterMemberId: string;
@@ -77,7 +83,7 @@ export async function getGrantedOwnerMemberIds(viewerMemberId: string): Promise<
 
 export function canViewIncident(
   incident: { ownerMemberId?: string; sharedWithMemberIds?: string[] },
-  viewer: AuthUser | undefined,
+  viewer: AccessViewer | undefined,
   grantedOwnerIds: Set<string>,
 ): boolean {
   if (!isAuthEnabled() || !viewer) return true;
@@ -93,7 +99,7 @@ export function canViewIncident(
 /** Only the incident owner (or admin) may edit incidents and manage tasks. */
 export function canEditIncident(
   incident: { ownerMemberId?: string },
-  viewer: AuthUser | undefined,
+  viewer: AccessViewer | undefined,
 ): boolean {
   if (!isAuthEnabled() || !viewer) return true;
 
@@ -105,14 +111,14 @@ export function canEditIncident(
 
 export function canManageTasks(
   incident: { ownerMemberId?: string },
-  viewer: AuthUser | undefined,
+  viewer: AccessViewer | undefined,
 ): boolean {
   return canEditIncident(incident, viewer);
 }
 
 export function canViewAlertForIncident(
   incident: { ownerMemberId?: string; sharedWithMemberIds?: string[] },
-  viewer: AuthUser | undefined,
+  viewer: AccessViewer | undefined,
   grantedOwnerIds: Set<string>,
 ): boolean {
   return canViewIncident(incident, viewer, grantedOwnerIds);
@@ -120,17 +126,17 @@ export function canViewAlertForIncident(
 
 export function canManageAlertForIncident(
   incident: { ownerMemberId?: string },
-  viewer: AuthUser | undefined,
+  viewer: AccessViewer | undefined,
 ): boolean {
   return canEditIncident(incident, viewer);
 }
 
-export function canUseInvestigator(viewer: AuthUser | undefined): boolean {
+export function canUseInvestigator(viewer: AccessViewer | undefined): boolean {
   if (!isAuthEnabled() || !viewer) return true;
-  return viewer.role === 'admin' || viewer.role === 'operator';
+  return viewer.role === 'admin';
 }
 
-export function canReindexCorpus(viewer: AuthUser | undefined): boolean {
+export function canReindexCorpus(viewer: AccessViewer | undefined): boolean {
   if (!isAuthEnabled() || !viewer) return true;
   return viewer.role === 'admin';
 }

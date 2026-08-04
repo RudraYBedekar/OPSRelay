@@ -45,7 +45,10 @@ tasksRouter.patch('/:taskId/status', async (req, res, next) => {
       const tasks = (row.data.tasks ?? []) as IncidentTask[];
       const idx = tasks.findIndex((t) => t.id === taskId);
       if (idx >= 0) {
-        const incident = row.data as IncidentWithTasks & { ownerMemberId?: string };
+        const incident = {
+          ...(row.data as unknown as IncidentWithTasks),
+          ownerMemberId: typeof row.data.ownerMemberId === 'string' ? row.data.ownerMemberId : undefined,
+        };
         if (isAuthEnabled() && req.user) {
           if (!canEditIncident(incident, req.user)) {
             res.status(404).json({ error: `Task ${taskId} not found` });

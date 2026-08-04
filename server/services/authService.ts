@@ -47,6 +47,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function signToken(user: AuthUser): string {
+  const options: jwt.SignOptions = {
+    expiresIn: getJwtExpiresIn() as jwt.SignOptions['expiresIn'],
+  };
   return jwt.sign(
     {
       sub: user.id,
@@ -57,7 +60,7 @@ export function signToken(user: AuthUser): string {
       role: user.role,
     },
     getJwtSecret(),
-    { expiresIn: getJwtExpiresIn() },
+    options,
   );
 }
 

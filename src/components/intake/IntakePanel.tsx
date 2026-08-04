@@ -81,6 +81,26 @@ export const IntakePanel: React.FC<IntakePanelProps> = ({
     ) : (
       <>
         <NotesForm onExtract={onSaveAndAnalyze} isExtracting={isAnalyzing} step={step} />
+        {savedIncidentId && analysisFailed && !extractionResult && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+            <p className="text-sm font-semibold text-amber-900">
+              Incident saved as <span className="font-mono">{savedIncidentId}</span>
+            </p>
+            <p className="text-sm text-amber-900/90">
+              AI analysis failed or timed out. Your notes are already in the database — retry analysis or open the incident.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {onRetryAnalysis && (
+                <button type="button" onClick={onRetryAnalysis} className="ops-btn-primary text-sm min-h-[36px]">
+                  Retry analysis
+                </button>
+              )}
+              <button type="button" onClick={onResetExtraction} className="ops-btn-secondary text-sm min-h-[36px]">
+                Start over
+              </button>
+            </div>
+          </div>
+        )}
         {extractionResult && savedIncidentId && analysisRun && (
           <ExtractionResultView
             result={extractionResult}

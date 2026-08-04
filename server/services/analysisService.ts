@@ -22,6 +22,73 @@ export interface AgentRunRecord {
   approvedAt?: string;
 }
 
+const SAFE_ERROR_CODES = new Set([
+  'BEDROCK_NOT_CONFIGURED',
+  'BEDROCK_THROTTLED',
+  'BEDROCK_TIMEOUT',
+  'BEDROCK_INVALID_OUTPUT',
+  'EMBEDDING_DIMENSION_MISMATCH',
+  'DATABASE_UNAVAILABLE',
+  'ANALYSIS_FAILED',
+]);
+
+function sanitizeAnalysisError(err: unknown): string {
+  const raw = err instanceof Error ? err.message.toLowerCase() : '';
+  if (raw.includes('bedrock_not_configured') || raw.includes('not configured')) {
+    return 'BEDROCK_NOT_CONFIGURED';
+  }
+  if (raw.includes('throttl') || raw.includes('429')) return 'BEDROCK_THROTTLED';
+  if (raw.includes('timeout') || raw.includes('timed out')) return 'BEDROCK_TIMEOUT';
+  if (raw.includes('zod') || raw.includes('invalid') || raw.includes('parse')) {
+    return 'BEDROCK_INVALID_OUTPUT';
+  }
+  if (raw.includes('econn') || raw.includes('database')) return 'DATABASE_UNAVAILABLE';
+  return 'ANALYSIS_FAILED';
+}
+
+function mapRun(row: {
+  id: string;
+  incident_id: string;
+  status: string;
+  output_json: unknown;
+  confidence: number | null;
+  warnings: unknown;
+  error_code: string | null;
+  created_at: string;
+  completed_at: string | null;
+  approved_at: string | null;
+}): AgentRunRecord {
+  return {
+    id: row.id,
+    incidentId: row.incident_id,
+    status: row.status,
+    outputJson: row.output_json ?? undefined,
+    confidence: row.confidence != null ? Number(row.confidence) : undefined,
+    warnings: Array.isArray(row.warnings) ? row.warnings : [],
+    errorCode: row.error_code && SAFE_ERROR_CODES.has(row.error_code)
+      ? row.error_code
+      : row.error_code
+        ? 'ANALYSIS_FAILED'
+        : undefined,
+    createdAt: row.created_at,
+    completedAt: row.completed_at ?? undefined,
+    approvedAt: row.approved_at ?? undefined,
+  };
+}
+
+async function patchIncidentAnalysisStatus(
+  incidentId: string,
+  status: AnalysisStatus,
+): Promise<void> {
+  await query(
+    `UPDATE incidents
+     SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{analysisStatus}', to_jsonb($2::text), true),
+         updated_at = now()
+     WHERE id = $1`,
+    [incidentId, status],
+  );
+}
+
 export async function getLatestRun(incidentId: string, ownerMemberId: string): Promise<AgentRunRecord | null> {
   const row = await queryOne<{
     id: string;
@@ -42,19 +109,33 @@ export async function getLatestRun(incidentId: string, ownerMemberId: string): P
      ORDER BY created_at DESC LIMIT 1`,
     [incidentId, ownerMemberId],
   );
-  if (!row) return null;
-  return {
-    id: row.id,
-    incidentId: row.incident_id,
-    status: row.status,
-    outputJson: row.output_json ?? undefined,
-    confidence: row.confidence != null ? Number(row.confidence) : undefined,
-    warnings: Array.isArray(row.warnings) ? row.warnings : [],
-    errorCode: row.error_code ?? undefined,
-    createdAt: row.created_at,
-    completedAt: row.completed_at ?? undefined,
-    approvedAt: row.approved_at ?? undefined,
-  };
+  return row ? mapRun(row) : null;
+}
+
+async function getRunByIdempotency(
+  incidentId: string,
+  ownerMemberId: string,
+  idempotencyKey: string,
+): Promise<AgentRunRecord | null> {
+  const row = await queryOne<{
+    id: string;
+    incident_id: string;
+    status: string;
+    output_json: unknown;
+    confidence: number | null;
+    warnings: unknown;
+    error_code: string | null;
+    created_at: string;
+    completed_at: string | null;
+    approved_at: string | null;
+  }>(
+    `SELECT id, incident_id, status, output_json, confidence, warnings, error_code,
+            created_at, completed_at, approved_at
+     FROM agent_runs
+     WHERE incident_id = $1 AND owner_member_id = $2 AND idempotency_key = $3`,
+    [incidentId, ownerMemberId, idempotencyKey],
+  );
+  return row ? mapRun(row) : null;
 }
 
 export async function startAnalysisRun(
@@ -62,13 +143,18 @@ export async function startAnalysisRun(
   user: AuthUser,
   idempotencyKey: string,
 ): Promise<AgentRunRecord> {
-  const existing = await queryOne<{ id: string }>(
-    `SELECT id FROM agent_runs WHERE owner_member_id = $1 AND idempotency_key = $2`,
-    [user.memberId, idempotencyKey],
+  const inserted = await queryOne<{ id: string }>(
+    `INSERT INTO agent_runs (incident_id, owner_member_id, run_type, status, idempotency_key, model_id, prompt_version)
+     VALUES ($1, $2, 'extraction', 'running', $3, $4, $5)
+     ON CONFLICT (owner_member_id, incident_id, idempotency_key) DO NOTHING
+     RETURNING id`,
+    [incidentId, user.memberId, idempotencyKey, bedrockConfig.llmModel, PROMPT_VERSION],
   );
-  if (existing) {
-    const run = await getLatestRun(incidentId, user.memberId);
-    if (run) return run;
+
+  if (!inserted) {
+    const existing = await getRunByIdempotency(incidentId, user.memberId, idempotencyKey);
+    if (existing) return existing;
+    throw Object.assign(new Error('Analysis run conflict'), { status: 409 });
   }
 
   const incidentRow = await queryOne<{ data: Record<string, unknown> }>(
@@ -77,22 +163,10 @@ export async function startAnalysisRun(
   );
   if (!incidentRow) throw new Error('Incident not found');
 
-  const incident = { ...incidentRow.data };
-  const rawNotes = String(incident.rawNotes ?? '');
+  const rawNotes = String(incidentRow.data.rawNotes ?? '');
   if (!rawNotes.trim()) throw new Error('Incident has no notes to analyze');
 
-  const runRow = await queryOne<{ id: string }>(
-    `INSERT INTO agent_runs (incident_id, owner_member_id, run_type, status, idempotency_key, model_id, prompt_version)
-     VALUES ($1, $2, 'extraction', 'running', $3, $4, $5)
-     RETURNING id`,
-    [incidentId, user.memberId, idempotencyKey, bedrockConfig.llmModel, PROMPT_VERSION],
-  );
-
-  incident.analysisStatus = 'running';
-  await query(
-    'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
-    [incidentId, JSON.stringify(incident)],
-  );
+  await patchIncidentAnalysisStatus(incidentId, 'running');
 
   const started = Date.now();
   try {
@@ -108,29 +182,21 @@ export async function startAnalysisRun(
        SET status = 'review_required', output_json = $2::jsonb, confidence = $3,
            warnings = '[]'::jsonb, latency_ms = $4, completed_at = now()
        WHERE id = $1`,
-      [runRow!.id, JSON.stringify(validated), validated.confidenceScore ?? 85, Date.now() - started],
+      [inserted.id, JSON.stringify(validated), validated.confidenceScore ?? 85, Date.now() - started],
     );
 
-    incident.analysisStatus = 'review_required';
-    await query(
-      'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
-      [incidentId, JSON.stringify(incident)],
-    );
+    await patchIncidentAnalysisStatus(incidentId, 'review_required');
   } catch (err) {
-    const code = err instanceof Error ? err.message.slice(0, 80) : 'analysis_failed';
+    const code = sanitizeAnalysisError(err);
     await query(
       `UPDATE agent_runs SET status = 'failed', error_code = $2, latency_ms = $3, completed_at = now()
        WHERE id = $1`,
-      [runRow!.id, code, Date.now() - started],
+      [inserted.id, code, Date.now() - started],
     );
-    incident.analysisStatus = 'failed';
-    await query(
-      'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
-      [incidentId, JSON.stringify(incident)],
-    );
+    await patchIncidentAnalysisStatus(incidentId, 'failed');
   }
 
-  return (await getLatestRun(incidentId, user.memberId))!;
+  return (await getRunByIdempotency(incidentId, user.memberId, idempotencyKey))!;
 }
 
 export async function approveAnalysisRun(
@@ -141,22 +207,33 @@ export async function approveAnalysisRun(
 ): Promise<Record<string, unknown>> {
   const validated = parseExtractionResult(draft);
 
-  const incident = await withTransaction(async (client) => {
+  return withTransaction(async (client) => {
     const run = await queryWithClient<{ status: string; owner_member_id: string }>(
       client,
-      'SELECT status, owner_member_id FROM agent_runs WHERE id = $1 AND incident_id = $2',
+      `SELECT status, owner_member_id FROM agent_runs
+       WHERE id = $1 AND incident_id = $2
+       FOR UPDATE`,
       [runId, incidentId],
     );
     if (!run[0] || run[0].owner_member_id !== user.memberId) {
-      throw new Error('Analysis run not found');
+      throw Object.assign(new Error('Analysis run not found'), { status: 404 });
     }
     if (run[0].status === 'approved') {
-      throw Object.assign(new Error('Analysis already approved'), { status: 409 });
+      throw Object.assign(new Error('Analysis already approved'), {
+        status: 409,
+        code: 'ANALYSIS_ALREADY_APPROVED',
+      });
+    }
+    if (run[0].status !== 'review_required') {
+      throw Object.assign(new Error('Analysis is not ready for approval'), {
+        status: 409,
+        code: 'ANALYSIS_NOT_REVIEWABLE',
+      });
     }
 
     const incRow = await queryWithClient<{ data: Record<string, unknown> }>(
       client,
-      'SELECT data FROM incidents WHERE id = $1',
+      'SELECT data FROM incidents WHERE id = $1 FOR UPDATE',
       [incidentId],
     );
     if (!incRow[0]) throw new Error('Incident not found');
@@ -194,11 +271,9 @@ export async function approveAnalysisRun(
       [runId, JSON.stringify(validated)],
     );
 
+    await enqueuePostApprovalJobs(incidentId, client);
     return updated as Record<string, unknown>;
   });
-
-  await enqueuePostApprovalJobs(incidentId);
-  return incident;
 }
 
 export async function createIntakeIncident(

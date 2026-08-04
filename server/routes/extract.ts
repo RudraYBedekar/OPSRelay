@@ -3,6 +3,7 @@ import { isBedrockConfigured } from '../config/bedrock.js';
 import { extractIncidentFromNotes as bedrockExtract } from '../services/llmService.js';
 import { fallbackExtract } from '../services/fallbackExtract.js';
 import { assertNotesSafeForProcessing, scanAndRedactSecrets } from '../utils/redactSecrets.js';
+import { parseExtractionResult } from '../schemas/extraction.js';
 
 export const extractRouter = Router();
 
@@ -26,7 +27,7 @@ extractRouter.post('/', async (req, res, next) => {
 
     if (isBedrockConfigured()) {
       try {
-        const result = await bedrockExtract(redactedText);
+        const result = parseExtractionResult(await bedrockExtract(redactedText));
         res.json({
           ...result,
           source: 'bedrock',

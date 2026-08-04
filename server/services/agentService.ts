@@ -53,7 +53,7 @@ export interface AgentResult {
 function buildLocalAgentAnswer(
   queryText: string,
   similar: AgentResult['similarIncidents'],
-  activeIncident: Record<string, unknown> | null,
+  activeIncident: (IncidentRecord & { severity?: string; status?: string }) | null,
   embedMode: string,
 ): string {
   const top = similar[0];
@@ -238,27 +238,34 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
         service: hit.service,
         summary: inc?.summary ?? hit.content.slice(0, 200),
         fixesApplied: inc?.fixesApplied,
-        severity: inc?.severity,
+        severity: inc?.severity ?? 'SEV-2',
         status: inc?.status,
       },
       hit.similarityScore,
     );
   });
 
-  let activeIncident: Record<string, unknown> | null = null;
+  let activeIncident: (IncidentRecord & { severity?: string; status?: string; title?: string }) | null = null;
 
   if (queriedIncidentId) {
     const fromList = incidents.find((i) => i.id === queriedIncidentId);
     if (fromList) {
-      activeIncident = fromList as Record<string, unknown>;
+      activeIncident = fromList;
     } else if (!isAuthEnabled() || !viewer) {
-      const row = await queryOne<{ data: Record<string, unknown> }>(
+      const row = await queryOne<{ data: IncidentRecord & { severity?: string; status?: string } }>(
         'SELECT data FROM incidents WHERE id = $1',
         [queriedIncidentId],
       );
       activeIncident = row?.data ?? null;
     } else {
-      const row = await queryOne<{ data: Record<string, unknown> & { ownerMemberId?: string; sharedWithMemberIds?: string[] } }>(
+      const row = await queryOne<{
+        data: IncidentRecord & {
+          severity?: string;
+          status?: string;
+          ownerMemberId?: string;
+          sharedWithMemberIds?: string[];
+        };
+      }>(
         'SELECT data FROM incidents WHERE id = $1',
         [queriedIncidentId],
       );
@@ -268,7 +275,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     }
 
     if (activeIncident) {
-      const direct = incidentToMatch(activeIncident as IncidentRecord, 100);
+      const direct = incidentToMatch(activeIncident, 100);
       const withoutDup = similarIncidents.filter((s) => s.id !== queriedIncidentId);
       similarIncidents.length = 0;
       similarIncidents.push(direct, ...withoutDup.slice(0, 4));
@@ -289,7 +296,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
       status: activeIncident ? 'done' : 'skipped',
     });
   } else if (similarIncidents.length > 0 && similarIncidents[0].similarityScore >= 40) {
-    activeIncident = incidents.find((i) => i.id === similarIncidents[0].id) as Record<string, unknown> ?? null;
+    activeIncident = incidents.find((i) => i.id === similarIncidents[0].id) ?? null;
     if (activeIncident) {
       steps.push({
         step: 5,
@@ -313,7 +320,16 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     });
     answer = await generateAgentResponse(queryText, {
       similarIncidents,
-      activeIncident,
+      activeIncident: activeIncident
+        ? {
+            id: activeIncident.id,
+            title: activeIncident.title,
+            service: activeIncident.service,
+            severity: activeIncident.severity,
+            status: activeIncident.status,
+            summary: activeIncident.summary,
+          }
+        : null,
     });
     mode = 'bedrock';
   } else {

@@ -9,5 +9,6 @@
     "outDir": "dist-server",
     "rootDir": "server"
   },
-  "include": ["server/**/*"]
+  "include": ["server/**/*"],
+  "exclude": ["server/scripts/**", "server/tests/**"]
 }

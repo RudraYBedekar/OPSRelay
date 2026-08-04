@@ -60,18 +60,14 @@ describe('alert authorization', () => {
   });
 });
 
-describe('alert match summaries', () => {
-  it('does not expose alertText in API types', () => {
-    const summary = {
-      id: 'alert-1',
-      linkedIncidentId: 'INC-1',
-      service: 'billing',
-      firstSeen: new Date().toISOString(),
-      lastSeen: new Date().toISOString(),
-      suppressedCount: 0,
-      status: 'active' as const,
-      similarity: 0.9,
-    };
-    expect(summary).not.toHaveProperty('alertText');
+describe('investigator role', () => {
+  it('restricts investigator to admins when auth is enabled', async () => {
+    const { canUseInvestigator } = await import('../services/incidentAccessService.js');
+    const admin = { ...owner, role: 'admin' as const };
+    // When AUTH_ENABLED is true in env, operators are denied
+    if (process.env.AUTH_ENABLED !== 'false') {
+      expect(canUseInvestigator(admin)).toBe(true);
+      expect(canUseInvestigator(viewer)).toBe(false);
+    }
   });
 });

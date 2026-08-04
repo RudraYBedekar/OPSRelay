@@ -100,8 +100,19 @@ analysisRouter.post('/:id/analysis/:runId/approve', async (req, res, next) => {
     );
     res.json(updated);
   } catch (err) {
-    if ((err as { status?: number }).status === 409) {
-      res.status(409).json({ error: 'Analysis already approved' });
+    const status = (err as { status?: number }).status;
+    const code = (err as { code?: string }).code;
+    if (status === 404) {
+      res.status(404).json({ error: 'Analysis run not found' });
+      return;
+    }
+    if (status === 409) {
+      res.status(409).json({
+        error: code === 'ANALYSIS_NOT_REVIEWABLE'
+          ? 'Analysis is not ready for approval'
+          : 'Analysis already approved',
+        code: code ?? 'ANALYSIS_ALREADY_APPROVED',
+      });
       return;
     }
     next(err);

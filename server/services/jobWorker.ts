@@ -1,4 +1,4 @@
-import { queryOne } from '../db.js';
+import { query, queryOne } from '../db.js';
 import { indexIncident, type IncidentRecord } from './vectorService.js';
 import {
   buildAlertText,
@@ -7,16 +7,28 @@ import {
   incrementSuppressedCount,
 } from './alertFatigueService.js';
 import { projectIncidentEvidence } from './evidenceProjectionService.js';
-import { processJobBatch } from './incidentJobService.js';
+import { processJobBatch, recordJobEffect } from './incidentJobService.js';
 import type { JobType } from '../types/analysis.js';
 
-async function handleJob(incidentId: string, jobType: JobType): Promise<void> {
-  const row = await queryOne<{ data: IncidentRecord & {
-    ownerMemberId?: string;
-    analysisStatus?: string;
-    duplicateCandidate?: { matchedAlertId?: string };
-  } }>(
-    'SELECT data FROM incidents WHERE id = $1',
+interface JobIncidentData extends IncidentRecord {
+  ownerMemberId?: string;
+  analysisStatus?: string;
+  status?: string;
+  updatedAt?: string;
+  decisions?: Array<{ title: string; description?: string }>;
+  tasks?: Array<{ title: string }>;
+  duplicateCandidate?: {
+    state?: string;
+    matchedAlertId?: string;
+    matchedIncidentId?: string;
+    similarity?: number;
+    message?: string;
+  };
+}
+
+async function handleJob(incidentId: string, jobType: JobType, jobId: string): Promise<void> {
+  const row = await queryOne<{ data: JobIncidentData; updated_at: string }>(
+    'SELECT data, updated_at FROM incidents WHERE id = $1',
     [incidentId],
   );
   if (!row) throw new Error('incident_not_found');
@@ -26,10 +38,16 @@ async function handleJob(incidentId: string, jobType: JobType): Promise<void> {
   if (!ownerMemberId) throw new Error('incident_no_owner');
 
   switch (jobType) {
-    case 'index_incident_vector':
+    case 'index_incident_vector': {
+      const firstWrite = await recordJobEffect(jobId, `index:${incidentId}`);
+      if (!firstWrite) return;
       await indexIncident(incident);
       break;
+    }
     case 'evaluate_alert_duplicate': {
+      const firstWrite = await recordJobEffect(jobId, `alert-eval:${incidentId}`);
+      if (!firstWrite) return;
+
       const alertText = buildAlertText({
         title: incident.title,
         summary: incident.summary,
@@ -49,15 +67,16 @@ async function handleJob(incidentId: string, jobType: JobType): Promise<void> {
         await recordAlertForIncident(alertText, incident.service, incidentId, ownerMemberId);
         incident.duplicateCandidate = { state: 'none' };
       }
-      const { query } = await import('../db.js');
       await query(
         'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
         [incidentId, JSON.stringify(incident)],
       );
       break;
     }
-    case 'project_mcp_evidence':
+    case 'project_mcp_evidence': {
       if (incident.analysisStatus !== 'approved') return;
+      const firstWrite = await recordJobEffect(jobId, `evidence:${incidentId}:${row.updated_at}`);
+      if (!firstWrite) return;
       await projectIncidentEvidence({
         incidentId,
         title: incident.title,
@@ -66,11 +85,13 @@ async function handleJob(incidentId: string, jobType: JobType): Promise<void> {
         status: String(incident.status ?? 'INVESTIGATING'),
         summary: incident.summary,
         fixesApplied: incident.fixesApplied,
-        decisions: incident.decisions as Array<{ title: string; description?: string }> | undefined,
-        tasks: incident.tasks as Array<{ title: string }> | undefined,
-        sourceUpdatedAt: new Date().toISOString(),
+        decisions: incident.decisions,
+        tasks: incident.tasks,
+        sourceUpdatedAt: row.updated_at,
+        ownerScope: ownerMemberId.slice(0, 8),
       });
       break;
+    }
     default:
       throw new Error('unknown_job');
   }
