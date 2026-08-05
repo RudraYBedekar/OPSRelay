@@ -643,6 +643,11 @@ class ApiService {
     return crdbClient.deleteTeamChatMessage(chatId, messageId);
   }
 
+  public async deleteTeamChat(chatId: string) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.deleteTeamChat(chatId);
+  }
+
   public async getAlertStatsForIncident(incidentId: string) {
     if (!USE_CRDB) return { suppressedCount: 0, summaryMessage: null };
     return crdbClient.getAlertStatsForIncident(incidentId);

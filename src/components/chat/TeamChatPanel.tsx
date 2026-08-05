@@ -236,6 +236,28 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
     }
   };
 
+  const deleteChat = async () => {
+    if (!selectedChatId || !activeChat) return;
+    const other = activeChat.participants.find((p) => p.memberId !== memberId);
+    const otherName = other?.name ?? 'this person';
+    if (!window.confirm(`Delete the entire chat with ${otherName}? All messages will be permanently removed.`)) {
+      return;
+    }
+    setSending(true);
+    try {
+      await apiService.deleteTeamChat(selectedChatId);
+      setActiveChat(null);
+      setSelectedChatId(null);
+      setShowGuestForm(false);
+      await loadChats();
+      toast('Chat deleted', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Delete failed', 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (!apiService.isUsingCrdb()) {
     return (
       <div className="ops-card p-6 text-center text-sm text-ops-subtext">
@@ -378,14 +400,26 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                     </p>
                   </div>
                   {!isGuestViewer && (
-                    <button
-                      type="button"
-                      onClick={() => setShowGuestForm((v) => !v)}
-                      className="ops-btn-secondary text-xs min-h-[32px]"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" aria-hidden />
-                      Add guest
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowGuestForm((v) => !v)}
+                        className="ops-btn-secondary text-xs min-h-[32px]"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" aria-hidden />
+                        Add guest
+                      </button>
+                      <button
+                        type="button"
+                        disabled={sending}
+                        onClick={() => void deleteChat()}
+                        className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 min-h-[32px]"
+                        title="Delete entire chat"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        Delete chat
+                      </button>
+                    </div>
                   )}
                 </div>
 

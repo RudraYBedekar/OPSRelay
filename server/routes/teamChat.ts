@@ -7,6 +7,7 @@ import {
   getChatDetail,
   sendChatMessage,
   deleteChatMessage,
+  deleteChat,
   inviteGuestToChat,
   removeGuestFromChat,
   type GuestDuration,
@@ -70,6 +71,27 @@ teamChatRouter.post('/', async (req, res, next) => {
       err.message.includes('cannot start')
     )) {
       res.status(400).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.delete('/:chatId', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    res.json(await deleteChat(req.params.chatId, user));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && (
+      err.message.includes('not found') ||
+      err.message.includes('Only chat participants')
+    )) {
+      const status = err.message.includes('not found') ? 404 : 400;
+      res.status(status).json({ error: err.message });
       return;
     }
     next(err);

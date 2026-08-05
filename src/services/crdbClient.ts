@@ -221,6 +221,10 @@ export const crdbClient = {
     request<{ deleted: true; messageId: string }>(`/team-chat/${chatId}/messages/${messageId}`, {
       method: 'DELETE',
     }),
+  deleteTeamChat: (chatId: string) =>
+    request<{ deleted: true; chatId: string }>(`/team-chat/${chatId}`, {
+      method: 'DELETE',
+    }),
   getAlertStatsForIncident: (incidentId: string) =>
     request<import('../types/alertFatigue').AlertIncidentStats | { suppressedCount: number; summaryMessage: null }>(
       `/alerts/incident/${incidentId}/stats`,

@@ -508,3 +508,26 @@ export async function deleteChatMessage(
 
   return { deleted: true, messageId };
 }
+
+/** Permanent chat participants can delete the entire conversation. */
+export async function deleteChat(
+  chatId: string,
+  user: AuthUser,
+): Promise<{ deleted: true; chatId: string }> {
+  const chat = await queryOne<{ member_a_id: string; member_b_id: string }>(
+    'SELECT member_a_id, member_b_id FROM team_chats WHERE id = $1',
+    [chatId],
+  );
+  if (!chat) throw new Error('Chat not found');
+
+  const isOwner = chat.member_a_id === user.memberId || chat.member_b_id === user.memberId;
+  if (!isOwner) {
+    throw new Error('Only chat participants can delete this conversation');
+  }
+
+  await query('DELETE FROM team_chat_messages WHERE chat_id = $1', [chatId]);
+  await query('DELETE FROM team_chat_guests WHERE chat_id = $1', [chatId]);
+  await query('DELETE FROM team_chats WHERE id = $1', [chatId]);
+
+  return { deleted: true, chatId };
+}
