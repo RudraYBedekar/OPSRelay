@@ -627,7 +627,7 @@ class ApiService {
   public async inviteTeamChatGuest(
     chatId: string,
     memberId: string,
-    durationMinutes: 5 | 15 | 30 | 60,
+    durationMinutes: import('../types/teamChat').GuestDuration,
   ) {
     if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
     return crdbClient.inviteTeamChatGuest(chatId, memberId, durationMinutes);
@@ -636,6 +636,11 @@ class ApiService {
   public async removeTeamChatGuest(chatId: string, guestId: string) {
     if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
     return crdbClient.removeTeamChatGuest(chatId, guestId);
+  }
+
+  public async deleteTeamChatMessage(chatId: string, messageId: string) {
+    if (!USE_CRDB) throw new Error('Team chat requires CockroachDB');
+    return crdbClient.deleteTeamChatMessage(chatId, messageId);
   }
 
   public async getAlertStatsForIncident(incidentId: string) {

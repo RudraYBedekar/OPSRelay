@@ -1,4 +1,16 @@
-export type GuestDuration = 5 | 15 | 30 | 60;
+export type GuestDuration = 5 | 15 | 30 | 60 | 120 | 240 | 480 | 1440;
+
+export const GUEST_DURATION_OPTIONS: Array<{ value: GuestDuration; label: string }> = [
+  { value: 5, label: '5 min' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+  { value: 120, label: '2 hours' },
+  { value: 240, label: '4 hours' },
+  { value: 480, label: '8 hours' },
+  { value: 1440, label: '24 hours' },
+];
+
 
 export type ChatMessageType = 'user' | 'system' | 'image';
 

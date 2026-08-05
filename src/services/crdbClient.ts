@@ -208,13 +208,17 @@ export const crdbClient = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
-  inviteTeamChatGuest: (chatId: string, memberId: string, durationMinutes: 5 | 15 | 30 | 60) =>
+  inviteTeamChatGuest: (chatId: string, memberId: string, durationMinutes: import('../types/teamChat').GuestDuration) =>
     request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}/guests`, {
       method: 'POST',
       body: JSON.stringify({ memberId, durationMinutes }),
     }),
   removeTeamChatGuest: (chatId: string, guestId: string) =>
     request<import('../types/teamChat').TeamChatDetail>(`/team-chat/${chatId}/guests/${guestId}`, {
+      method: 'DELETE',
+    }),
+  deleteTeamChatMessage: (chatId: string, messageId: string) =>
+    request<{ deleted: true; messageId: string }>(`/team-chat/${chatId}/messages/${messageId}`, {
       method: 'DELETE',
     }),
   getAlertStatsForIncident: (incidentId: string) =>

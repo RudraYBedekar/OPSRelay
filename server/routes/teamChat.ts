@@ -6,6 +6,7 @@ import {
   getOrCreateChat,
   getChatDetail,
   sendChatMessage,
+  deleteChatMessage,
   inviteGuestToChat,
   removeGuestFromChat,
   type GuestDuration,
@@ -14,7 +15,7 @@ import { isAuthEnabled } from '../config/auth.js';
 
 export const teamChatRouter = Router();
 
-const GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60];
+const GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60, 120, 240, 480, 1440];
 
 function requireUser(req: { user?: AuthUser }): AuthUser {
   if (!isAuthEnabled() || !req.user) {
@@ -125,6 +126,29 @@ teamChatRouter.post('/:chatId/messages', async (req, res, next) => {
   }
 });
 
+teamChatRouter.delete('/:chatId/messages/:messageId', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    res.json(await deleteChatMessage(req.params.chatId, user, req.params.messageId));
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && (
+      err.message.includes('not found') ||
+      err.message.includes('access') ||
+      err.message.includes('cannot be deleted') ||
+      err.message.includes('only delete')
+    )) {
+      const status = err.message.includes('not found') ? 404 : 400;
+      res.status(status).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
 teamChatRouter.post('/:chatId/guests', async (req, res, next) => {
   try {
     const user = requireUser(req);
@@ -137,7 +161,7 @@ teamChatRouter.post('/:chatId/guests', async (req, res, next) => {
       return;
     }
     if (!durationMinutes || !GUEST_DURATIONS.includes(durationMinutes)) {
-      res.status(400).json({ error: 'durationMinutes must be 5, 15, 30, or 60' });
+      res.status(400).json({ error: 'durationMinutes must be 5, 15, 30, 60, 120, 240, 480, or 1440' });
       return;
     }
     res.json(await inviteGuestToChat(req.params.chatId, user, memberId, durationMinutes));

@@ -3,7 +3,7 @@ import { secureQuery, secureQueryOne } from '../secureDb.js';
 import type { AuthUser } from './authService.js';
 import { isValidMemberIdFormat } from './incidentAccessService.js';
 
-export type GuestDuration = 5 | 15 | 30 | 60;
+export type GuestDuration = 5 | 15 | 30 | 60 | 120 | 240 | 480 | 1440;
 
 export type ChatMessageType = 'user' | 'system' | 'image';
 
@@ -140,7 +140,7 @@ async function insertSystemMessage(chatId: string, text: string): Promise<void> 
   );
 }
 
-const ALLOWED_GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60];
+const ALLOWED_GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60, 120, 240, 480, 1440];
 const MAX_IMAGE_BYTES = 600_000;
 
 function mapMessageRow(m: {
@@ -370,7 +370,7 @@ export async function inviteGuestToChat(
   durationMinutes: GuestDuration,
 ): Promise<TeamChatDetail> {
   if (!ALLOWED_GUEST_DURATIONS.includes(durationMinutes)) {
-    throw new Error('Guest duration must be 5, 15, 30, or 60 minutes');
+    throw new Error('Guest duration must be 5, 15, 30, 60, 120, 240, 480, or 1440 minutes');
   }
 
   const normalized = guestMemberId.trim().toUpperCase();
@@ -414,7 +414,9 @@ export async function inviteGuestToChat(
 
   await insertSystemMessage(
     chatId,
-    `${user.name} invited ${guest.name} (${guest.memberId}) for ${durationMinutes} minutes.`,
+    `${user.name} invited ${guest.name} (${guest.memberId}) for ${
+      durationMinutes >= 60 ? `${durationMinutes / 60} hour(s)` : `${durationMinutes} minutes`
+    }.`,
   );
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
@@ -465,4 +467,44 @@ export async function removeGuestFromChat(
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
   return getChatDetail(chatId, user.memberId);
+}
+
+/** Sender or permanent chat participant can delete a non-system message. */
+export async function deleteChatMessage(
+  chatId: string,
+  user: AuthUser,
+  messageId: string,
+): Promise<{ deleted: true; messageId: string }> {
+  const chat = await queryOne<{ member_a_id: string; member_b_id: string }>(
+    'SELECT member_a_id, member_b_id FROM team_chats WHERE id = $1',
+    [chatId],
+  );
+  if (!chat) throw new Error('Chat not found');
+
+  const allowed = await canAccessChat(chat, user.memberId, chatId);
+  if (!allowed) throw new Error('You do not have access to this chat');
+
+  const message = await queryOne<{
+    id: string;
+    sender_member_id: string;
+    message_type: string;
+  }>(
+    'SELECT id, sender_member_id, message_type FROM team_chat_messages WHERE id = $1 AND chat_id = $2',
+    [messageId, chatId],
+  );
+  if (!message) throw new Error('Message not found');
+  if (message.message_type === 'system') {
+    throw new Error('System messages cannot be deleted');
+  }
+
+  const isSender = message.sender_member_id === user.memberId;
+  const isOwner = chat.member_a_id === user.memberId || chat.member_b_id === user.memberId;
+  if (!isSender && !isOwner) {
+    throw new Error('You can only delete your own messages');
+  }
+
+  await query('DELETE FROM team_chat_messages WHERE id = $1 AND chat_id = $2', [messageId, chatId]);
+  await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
+
+  return { deleted: true, messageId };
 }

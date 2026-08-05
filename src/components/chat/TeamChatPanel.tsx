@@ -6,6 +6,7 @@ import {
   Loader2,
   MessageCircle,
   Send,
+  Trash2,
   UserMinus,
   UserPlus,
   Users,
@@ -20,16 +21,28 @@ import type {
   TeamChatMember,
   TeamChatSummary,
 } from '../../types/teamChat';
+import { GUEST_DURATION_OPTIONS } from '../../types/teamChat';
 import { formatDate } from '../../utils/formatters';
 import { compressImageForChat } from '../../utils/chatImage';
 
-const GUEST_DURATIONS: GuestDuration[] = [5, 15, 30, 60];
-
 function formatGuestCountdown(ms: number): string {
   if (ms <= 0) return 'Expired';
-  const min = Math.floor(ms / 60000);
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin >= 60) {
+    const hours = Math.floor(totalMin / 60);
+    const min = totalMin % 60;
+    return `${hours}h ${min.toString().padStart(2, '0')}m`;
+  }
   const sec = Math.floor((ms % 60000) / 1000);
-  return `${min}:${sec.toString().padStart(2, '0')}`;
+  return `${totalMin}:${sec.toString().padStart(2, '0')}`;
+}
+
+function formatDurationLabel(minutes: number): string {
+  if (minutes >= 60) {
+    const hours = minutes / 60;
+    return Number.isInteger(hours) ? `${hours}h` : `${minutes}m`;
+  }
+  return `${minutes}m`;
 }
 
 interface TeamChatPanelProps {
@@ -178,7 +191,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
       setGuestRemainingMs(detail.activeGuest?.remainingMs ?? 0);
       setGuestMemberId('');
       setShowGuestForm(false);
-      toast(`Guest added for ${guestDuration} minutes`, 'success');
+      toast(`Guest added for ${GUEST_DURATION_OPTIONS.find((o) => o.value === guestDuration)?.label ?? `${guestDuration}m`}`, 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Invite failed', 'error');
     } finally {
@@ -200,6 +213,24 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
       await loadChats();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Remove failed', 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!selectedChatId) return;
+    setSending(true);
+    try {
+      await apiService.deleteTeamChatMessage(selectedChatId, messageId);
+      setActiveChat((prev) =>
+        prev
+          ? { ...prev, messages: prev.messages.filter((m) => m.id !== messageId) }
+          : prev,
+      );
+      toast('Message deleted', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Delete failed', 'error');
     } finally {
       setSending(false);
     }
@@ -366,7 +397,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         Guest: {activeChat.activeGuest.guestName} ({activeChat.activeGuest.guestMemberId})
                       </p>
                       <p className="text-[11px] text-violet-700">
-                        Auto-removes in {activeChat.activeGuest.durationMinutes} min · expires{' '}
+                        Auto-removes in {formatDurationLabel(activeChat.activeGuest.durationMinutes)} · expires{' '}
                         {formatDate(activeChat.activeGuest.expiresAt)}
                       </p>
                     </div>
@@ -399,18 +430,18 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       className="ops-input text-xs font-mono"
                     />
                     <div className="grid grid-cols-4 gap-2">
-                      {GUEST_DURATIONS.map((d) => (
+                      {GUEST_DURATION_OPTIONS.map(({ value, label }) => (
                         <button
-                          key={d}
+                          key={value}
                           type="button"
-                          onClick={() => setGuestDuration(d)}
-                          className={`rounded-lg border py-1.5 text-xs font-medium ${
-                            guestDuration === d
+                          onClick={() => setGuestDuration(value)}
+                          className={`rounded-lg border py-1.5 text-[11px] font-medium min-h-[36px] ${
+                            guestDuration === value
                               ? 'border-brand bg-red-50 text-brand'
                               : 'border-ops-border bg-white text-ops-subtext'
                           }`}
                         >
-                          {d}m
+                          {label}
                         </button>
                       ))}
                     </div>
@@ -443,9 +474,9 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                   }
 
                   return (
-                    <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                    <div key={msg.id} className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                       <div
-                        className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${
+                        className={`relative max-w-[80%] rounded-2xl px-3.5 py-2 ${
                           isMine
                             ? 'bg-brand text-white rounded-br-md'
                             : 'bg-slate-100 text-ops-text rounded-bl-md'
@@ -466,9 +497,25 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         {msg.text && msg.text !== '📷 Photo' && (
                           <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
                         )}
-                        <p className={`mt-1 text-[10px] ${isMine ? 'text-red-100' : 'text-ops-muted'}`}>
-                          {formatDate(msg.createdAt)}
-                        </p>
+                        <div className={`mt-1 flex items-center gap-2 ${isMine ? 'justify-between' : 'justify-between'}`}>
+                          <p className={`text-[10px] ${isMine ? 'text-red-100' : 'text-ops-muted'}`}>
+                            {formatDate(msg.createdAt)}
+                          </p>
+                          {(isMine || !isGuestViewer) && (
+                            <button
+                              type="button"
+                              onClick={() => void deleteMessage(msg.id)}
+                              disabled={sending}
+                              className={`rounded p-0.5 opacity-70 hover:opacity-100 ${
+                                isMine ? 'text-red-100 hover:bg-red-700/40' : 'text-ops-muted hover:bg-slate-200'
+                              }`}
+                              aria-label="Delete message"
+                              title="Delete message"
+                            >
+                              <Trash2 className="h-3 w-3" aria-hidden />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
