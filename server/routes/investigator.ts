@@ -1,15 +1,19 @@
 import { Router } from 'express';
-import { getMcpHealth } from '../config/mcp.js';
+import { getMcpHealth, mcpConfig } from '../config/mcp.js';
+import { probeManagedMcpConnection } from '../mcp/mcpClientFactory.js';
 import { runInvestigation } from '../services/investigatorService.js';
 import { canUseInvestigator } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
 
 export const investigatorRouter = Router();
 
-investigatorRouter.get('/status', (req, res) => {
+investigatorRouter.get('/status', async (req, res) => {
   if (isAuthEnabled() && req.user && !canUseInvestigator(req.user)) {
     res.status(403).json({ error: 'Investigator access denied' });
     return;
+  }
+  if (mcpConfig.mode === 'managed_mcp') {
+    await probeManagedMcpConnection();
   }
   res.json(getMcpHealth());
 });

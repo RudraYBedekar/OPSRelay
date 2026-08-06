@@ -1,4 +1,5 @@
 import { mcpConfig } from '../config/mcp.js';
+import { assertSafeSelectSql } from './mcpToolPolicy.js';
 
 export type InvestigationIntent =
   | 'service_history'
@@ -62,4 +63,19 @@ export function inferIntent(question: string): InvestigationIntent {
   if (q.includes('resolution') || q.includes('fixed') || q.includes('remediation')) return 'related_resolutions';
   if (q.includes('task') || q.includes('follow-up') || q.includes('follow up')) return 'recurring_tasks';
   return 'service_history';
+}
+
+function escapeSqlLiteral(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/** Render reviewed template SQL with inlined sanitized params for MCP select_query. */
+export function renderInvestigationSql(spec: InvestigationQuerySpec): string {
+  if (spec.params.length !== 1) {
+    throw new Error('Investigation query expects exactly one service parameter');
+  }
+  const literal = escapeSqlLiteral(spec.params[0]);
+  const sql = spec.sql.replace(/\$1\b/g, literal);
+  assertSafeSelectSql(sql, 'incident_evidence');
+  return sql;
 }

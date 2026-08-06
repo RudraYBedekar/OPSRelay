@@ -27,7 +27,8 @@ export function assertSafeSelectSql(sql: string, allowedTable: string): void {
   if (!normalized.startsWith('select')) throw new Error('Only SELECT queries are allowed');
   const forbidden = ['insert', 'update', 'delete', 'drop', 'create', 'alter', 'grant'];
   for (const word of forbidden) {
-    if (normalized.includes(word)) throw new Error(`Forbidden SQL keyword: ${word}`);
+    const pattern = new RegExp(`\\b${word}\\b`, 'i');
+    if (pattern.test(normalized)) throw new Error(`Forbidden SQL keyword: ${word}`);
   }
   if (!normalized.includes(allowedTable.toLowerCase())) {
     throw new Error('Query must target approved evidence table only');
