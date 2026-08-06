@@ -2,7 +2,7 @@ import { query, withTransaction, queryWithClient } from '../db.js';
 import { bedrockConfig } from '../config/bedrock.js';
 import { embedText, vectorToSql, getEmbedMode } from './embedService.js';
 import { scanAndRedactSecrets } from '../utils/redactSecrets.js';
-import { SIMILARITY_THRESHOLD } from '../utils/embeddingValidation.js';
+import { CORPUS_MATCH_THRESHOLD, SIMILARITY_THRESHOLD } from '../utils/embeddingValidation.js';
 
 export interface VectorSearchHit {
   incidentId: string;
@@ -24,6 +24,55 @@ export interface IncidentRecord {
   mttrMinutes?: number;
   resolvedAt?: string;
   rawNotes?: string;
+}
+
+const CORPUS_STOP_WORDS = new Set([
+  'inc', 'the', 'this', 'that', 'check', 'about', 'tell', 'what', 'incident',
+  'please', 'show', 'give', 'info', 'details', 'status', 'with', 'from', 'have',
+  'any', 'are', 'there', 'issue', 'issues', 'problem', 'problems',
+]);
+
+function tokenizeCorpusQuery(queryText: string): string[] {
+  return queryText
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !CORPUS_STOP_WORDS.has(t));
+}
+
+function scoreIncidentAgainstQuery(
+  inc: IncidentRecord,
+  queryText: string,
+  queryTokens: string[],
+): number {
+  const lower = queryText.toLowerCase();
+  const idFromQuery = queryText.match(/\bINC-[A-Z0-9]+\b/i)?.[0]?.toUpperCase();
+  const idLower = inc.id.toLowerCase();
+  const titleLower = (inc.title ?? '').toLowerCase();
+  const summaryLower = (inc.summary ?? '').toLowerCase();
+  const serviceLower = (inc.service ?? '').toLowerCase();
+  const componentLower = (inc.component ?? '').toLowerCase();
+  const notesLower = (inc.rawNotes ?? '').toLowerCase();
+
+  let score = 0;
+
+  if (idFromQuery && inc.id === idFromQuery) score = 100;
+  else if (lower.includes(idLower)) score = 100;
+
+  for (const token of queryTokens) {
+    if (titleLower.includes(token)) score += 22;
+    if (summaryLower.includes(token)) score += 14;
+    if (notesLower.includes(token)) score += 12;
+    if (serviceLower.includes(token)) score += 24;
+    if (componentLower.includes(token)) score += 14;
+  }
+
+  if (titleLower.length > 8 && lower.includes(titleLower.slice(0, Math.min(40, titleLower.length)))) {
+    score += 40;
+  }
+  if (serviceLower && lower.includes(serviceLower)) score += 28;
+
+  return Math.min(score, 100);
 }
 
 function redactForEmbedding(text: string): string {
@@ -161,51 +210,21 @@ export function searchIncidentsInCorpus(
   incidents: IncidentRecord[],
   limit = 5,
 ): VectorSearchHit[] {
-  const lower = queryText.toLowerCase();
-  const idFromQuery = queryText.match(/\bINC-[A-Z0-9]+\b/i)?.[0]?.toUpperCase();
-  const stopWords = new Set([
-    'inc', 'the', 'this', 'that', 'check', 'about', 'tell', 'what', 'incident',
-    'please', 'show', 'give', 'info', 'details', 'status', 'with', 'from', 'have',
-  ]);
-  const queryTokens = lower
-    .replace(/[^\w\s-]/g, ' ')
-    .split(/\s+/)
-    .filter((t) => t.length > 2 && !stopWords.has(t));
+  const queryTokens = tokenizeCorpusQuery(queryText);
 
   return incidents
     .map((inc) => {
-      let score = 0;
-      const idLower = inc.id.toLowerCase();
-      const titleLower = (inc.title ?? '').toLowerCase();
-      const summaryLower = (inc.summary ?? '').toLowerCase();
-      const serviceLower = (inc.service ?? '').toLowerCase();
-      const componentLower = (inc.component ?? '').toLowerCase();
-
-      if (idFromQuery && inc.id === idFromQuery) score = 100;
-      else if (lower.includes(idLower)) score = 100;
-
-      for (const token of queryTokens) {
-        if (titleLower.includes(token)) score += 18;
-        if (summaryLower.includes(token)) score += 12;
-        if (serviceLower.includes(token)) score += 22;
-        if (componentLower.includes(token)) score += 14;
-      }
-
-      if (titleLower.length > 8 && lower.includes(titleLower.slice(0, Math.min(40, titleLower.length)))) {
-        score += 40;
-      }
-      if (serviceLower && lower.includes(serviceLower)) score += 28;
-
+      const similarityScore = scoreIncidentAgainstQuery(inc, queryText, queryTokens);
       return {
         incidentId: inc.id,
         chunkType: 'summary',
         content: inc.summary,
         service: inc.service,
-        distance: 1 - Math.min(score, 100) / 100,
-        similarityScore: Math.min(score, 100),
+        distance: 1 - similarityScore / 100,
+        similarityScore,
       };
     })
-    .filter((h) => h.similarityScore >= SIMILARITY_THRESHOLD)
+    .filter((h) => h.similarityScore >= CORPUS_MATCH_THRESHOLD)
     .sort((a, b) => b.similarityScore - a.similarityScore)
     .slice(0, limit);
 }
@@ -223,7 +242,7 @@ export function mergeSearchHits(...lists: VectorSearchHit[][]): VectorSearchHit[
   return [...map.values()].sort((a, b) => b.similarityScore - a.similarityScore);
 }
 
-/** Used when Bedrock is off — keyword fallback scores */
+/** Used when vector search misses — keyword fallback scores */
 export function keywordSearchFallback(
   queryText: string,
   incidents: IncidentRecord[],
@@ -232,23 +251,20 @@ export function keywordSearchFallback(
   const corpus = searchIncidentsInCorpus(queryText, incidents, limit);
   if (corpus.length > 0) return corpus;
 
-  const lower = queryText.toLowerCase();
+  const queryTokens = tokenizeCorpusQuery(queryText);
   return incidents
     .map((inc) => {
-      let score = 0;
-      if (lower.includes(inc.id.toLowerCase())) score = 100;
-      if (lower.includes(inc.service.toLowerCase())) score += 20;
-      if (lower.includes('db') && inc.summary.toLowerCase().includes('cockroach')) score += 10;
+      const similarityScore = scoreIncidentAgainstQuery(inc, queryText, queryTokens);
       return {
         incidentId: inc.id,
         chunkType: 'summary',
         content: inc.summary,
         service: inc.service,
-        distance: 1 - score / 100,
-        similarityScore: Math.min(score, 98),
+        distance: 1 - similarityScore / 100,
+        similarityScore,
       };
     })
-    .filter((h) => h.similarityScore >= SIMILARITY_THRESHOLD)
+    .filter((h) => h.similarityScore >= CORPUS_MATCH_THRESHOLD)
     .sort((a, b) => b.similarityScore - a.similarityScore)
     .slice(0, limit);
 }

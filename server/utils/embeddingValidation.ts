@@ -41,3 +41,6 @@ export function getEmbeddingMeta(provider: EmbeddingProvider): EmbeddingMeta {
 
 /** Minimum cosine similarity (0–100 scale) to surface vector matches. */
 export const SIMILARITY_THRESHOLD = 55;
+
+/** Lower bar for deterministic title/summary keyword matches in the incident corpus. */
+export const CORPUS_MATCH_THRESHOLD = 15;

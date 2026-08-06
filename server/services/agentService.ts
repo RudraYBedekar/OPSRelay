@@ -213,6 +213,19 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     mode = 'keyword';
   }
 
+  if (hits.length === 0 && incidents.length > 0) {
+    hits = keywordSearchFallback(queryText, incidents, 5);
+    if (hits.length > 0) {
+      steps.push({
+        step: 3,
+        action: 'Relaxed keyword fallback',
+        detail: `Matched ${hits.length} incident(s) by title, summary, or notes`,
+        status: 'done',
+      });
+      mode = 'keyword';
+    }
+  }
+
   if (corpusHits.length > 0) {
     steps.push({
       step: 3,
@@ -295,7 +308,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
         : `${queriedIncidentId} not in database — save it via Intake first`,
       status: activeIncident ? 'done' : 'skipped',
     });
-  } else if (similarIncidents.length > 0 && similarIncidents[0].similarityScore >= 40) {
+  } else if (similarIncidents.length > 0) {
     activeIncident = incidents.find((i) => i.id === similarIncidents[0].id) ?? null;
     if (activeIncident) {
       steps.push({
