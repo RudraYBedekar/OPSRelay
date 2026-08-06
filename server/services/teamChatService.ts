@@ -2,6 +2,7 @@ import { query, queryOne } from '../db.js';
 import { secureQuery, secureQueryOne } from '../secureDb.js';
 import type { AuthUser } from './authService.js';
 import { isValidMemberIdFormat } from './incidentAccessService.js';
+import { archiveTeamChatEvent } from './teamChatArchiveService.js';
 
 export type GuestDuration = 5 | 15 | 30 | 60 | 120 | 240 | 480 | 1440;
 
@@ -254,12 +255,33 @@ export async function getOrCreateChat(
   const memberBName = memberBId === user.memberId ? user.name : other.name;
   const chatId = chatIdFor(user.memberId, other.memberId);
 
+  const existingChat = await queryOne<{ id: string }>(
+    'SELECT id FROM team_chats WHERE id = $1',
+    [chatId],
+  );
+
   await query(
     `INSERT INTO team_chats (id, member_a_id, member_a_name, member_b_id, member_b_name)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (member_a_id, member_b_id) DO NOTHING`,
     [chatId, memberAId, memberAName, memberBId, memberBName],
   );
+
+  if (!existingChat) {
+    await archiveTeamChatEvent({
+      chatId,
+      eventType: 'chat_created',
+      senderMemberId: user.memberId,
+      senderName: user.name,
+      payload: {
+        memberAId,
+        memberAName,
+        memberBId,
+        memberBName,
+        initiatedBy: user.memberId,
+      },
+    }).catch(() => undefined);
+  }
 
   return getChatDetail(chatId, user.memberId);
 }
@@ -360,7 +382,21 @@ export async function sendChatMessage(
 
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
-  return mapMessageRow(row!);
+  const mapped = mapMessageRow(row!);
+  await archiveTeamChatEvent({
+    chatId,
+    eventType: 'message_sent',
+    senderMemberId: user.memberId,
+    senderName: user.name,
+    payload: {
+      messageId: mapped.id,
+      text: mapped.text,
+      messageType: mapped.messageType,
+      hasImage: Boolean(mapped.imageData),
+    },
+  }).catch(() => undefined);
+
+  return mapped;
 }
 
 export async function inviteGuestToChat(
@@ -420,6 +456,19 @@ export async function inviteGuestToChat(
   );
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
+  await archiveTeamChatEvent({
+    chatId,
+    eventType: 'guest_invited',
+    senderMemberId: user.memberId,
+    senderName: user.name,
+    payload: {
+      guestMemberId: guest.memberId,
+      guestName: guest.name,
+      durationMinutes,
+      expiresAt,
+    },
+  }).catch(() => undefined);
+
   return getChatDetail(chatId, user.memberId);
 }
 
@@ -466,6 +515,18 @@ export async function removeGuestFromChat(
   );
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
+  await archiveTeamChatEvent({
+    chatId,
+    eventType: 'guest_removed',
+    senderMemberId: user.memberId,
+    senderName: user.name,
+    payload: {
+      guestId: guest.id,
+      guestMemberId: guest.guest_member_id,
+      guestName: guest.guest_name,
+    },
+  }).catch(() => undefined);
+
   return getChatDetail(chatId, user.memberId);
 }
 
@@ -506,6 +567,18 @@ export async function deleteChatMessage(
   await query('DELETE FROM team_chat_messages WHERE id = $1 AND chat_id = $2', [messageId, chatId]);
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
+  await archiveTeamChatEvent({
+    chatId,
+    eventType: 'message_deleted',
+    senderMemberId: user.memberId,
+    senderName: user.name,
+    payload: {
+      messageId,
+      deletedBy: user.memberId,
+      originalSender: message.sender_member_id,
+    },
+  }).catch(() => undefined);
+
   return { deleted: true, messageId };
 }
 
@@ -524,6 +597,18 @@ export async function deleteChat(
   if (!isOwner) {
     throw new Error('Only chat participants can delete this conversation');
   }
+
+  await archiveTeamChatEvent({
+    chatId,
+    eventType: 'chat_deleted',
+    senderMemberId: user.memberId,
+    senderName: user.name,
+    payload: {
+      deletedBy: user.memberId,
+      memberAId: chat.member_a_id,
+      memberBId: chat.member_b_id,
+    },
+  }).catch(() => undefined);
 
   await query('DELETE FROM team_chat_messages WHERE chat_id = $1', [chatId]);
   await query('DELETE FROM team_chat_guests WHERE chat_id = $1', [chatId]);
