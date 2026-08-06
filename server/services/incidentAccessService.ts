@@ -133,7 +133,7 @@ export function canManageAlertForIncident(
 
 export function canUseInvestigator(viewer: AccessViewer | undefined): boolean {
   if (!isAuthEnabled() || !viewer) return true;
-  return viewer.role === 'admin';
+  return viewer.role === 'admin' || viewer.role === 'operator';
 }
 
 export function canReindexCorpus(viewer: AccessViewer | undefined): boolean {

@@ -61,13 +61,12 @@ describe('alert authorization', () => {
 });
 
 describe('investigator role', () => {
-  it('restricts investigator to admins when auth is enabled', async () => {
+  it('allows authenticated operators and admins to use read-only MCP investigator', async () => {
     const { canUseInvestigator } = await import('../services/incidentAccessService.js');
     const admin = { ...owner, role: 'admin' as const };
-    // When AUTH_ENABLED is true in env, operators are denied
     if (process.env.AUTH_ENABLED !== 'false') {
       expect(canUseInvestigator(admin)).toBe(true);
-      expect(canUseInvestigator(viewer)).toBe(false);
+      expect(canUseInvestigator(viewer)).toBe(true);
     }
   });
 });

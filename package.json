@@ -11,6 +11,7 @@
     "db:seed-secure": "tsx server/scripts/seedSecureDb.ts",
     "db:seed-all": "npm run db:seed-secure && npm run db:seed",
     "db:seed-random-incidents": "tsx server/scripts/seedRandomIncidents.ts",
+    "db:seed-industry-incidents": "tsx server/scripts/seedIndustryIncidents.ts",
     "db:sample-logs": "tsx server/scripts/seedSampleLogs.ts",
     "test:e2e": "tsx server/scripts/e2eTest.ts",
     "test:db": "node servers/test-db.js",
