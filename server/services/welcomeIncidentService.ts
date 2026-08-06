@@ -1,4 +1,5 @@
 import { query, queryOne } from '../db.js';
+import { secureQuery } from '../secureDb.js';
 import { normalizeIncidentForSave, type IncidentWithTasks } from '../utils/incidentTasks.js';
 import { indexIncident } from './vectorService.js';
 import type { AuthUser } from './authService.js';
@@ -122,4 +123,55 @@ export async function seedWelcomeIncidentsIfNeeded(user: AuthUser): Promise<numb
   }
 
   return inserted;
+}
+
+interface SecureUserRow {
+  id: string;
+  member_id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+function rowToAuthUser(row: SecureUserRow): AuthUser {
+  return {
+    id: row.id,
+    memberId: row.member_id,
+    userId: row.user_id,
+    email: row.email,
+    name: row.name,
+    role: row.role === 'admin' ? 'admin' : 'operator',
+  };
+}
+
+/** Backfill welcome incidents for every account missing them (existing users included). */
+export async function backfillWelcomeIncidentsForAllUsers(): Promise<{
+  usersChecked: number;
+  usersSeeded: number;
+  incidentsCreated: number;
+}> {
+  const rows = await secureQuery<SecureUserRow>(
+    `SELECT id, member_id, user_id, email, name, role
+     FROM users
+     WHERE member_id IS NOT NULL AND member_id != ''
+     ORDER BY created_at ASC`,
+  );
+
+  let usersSeeded = 0;
+  let incidentsCreated = 0;
+
+  for (const row of rows) {
+    const created = await seedWelcomeIncidentsIfNeeded(rowToAuthUser(row));
+    if (created > 0) {
+      usersSeeded++;
+      incidentsCreated += created;
+    }
+  }
+
+  return {
+    usersChecked: rows.length,
+    usersSeeded,
+    incidentsCreated,
+  };
 }

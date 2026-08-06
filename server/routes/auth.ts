@@ -167,7 +167,13 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
   try {
     const { findUserById } = await import('../services/authService.js');
     const fresh = await findUserById(req.user!.id);
-    res.json({ user: fresh ?? req.user! });
+    const user = fresh ?? req.user!;
+    try {
+      await seedWelcomeIncidentsIfNeeded(user);
+    } catch {
+      // profile load succeeds even if demo seed fails
+    }
+    res.json({ user });
   } catch (err) {
     next(err);
   }

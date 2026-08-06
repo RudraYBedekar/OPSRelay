@@ -18,6 +18,7 @@ import { alertsRouter } from './routes/alerts.js';
 import { analysisRouter } from './routes/analysis.js';
 import { investigatorRouter } from './routes/investigator.js';
 import { startJobWorker } from './services/jobWorker.js';
+import { backfillWelcomeIncidentsForAllUsers } from './services/welcomeIncidentService.js';
 import { teamChatRouter } from './routes/teamChat.js';
 import { isBedrockConfigured, bedrockConfig } from './config/bedrock.js';
 import { isAuthEnabled } from './config/auth.js';
@@ -169,6 +170,18 @@ async function boot(): Promise<void> {
 
   startJobWorker();
   console.log('Background job worker started (15s interval)');
+
+  void backfillWelcomeIncidentsForAllUsers()
+    .then((result) => {
+      if (result.incidentsCreated > 0) {
+        console.log(
+          `Welcome incidents backfill: ${result.incidentsCreated} incident(s) for ${result.usersSeeded}/${result.usersChecked} account(s)`,
+        );
+      }
+    })
+    .catch((err) => {
+      console.warn('Welcome incidents backfill skipped:', err instanceof Error ? err.message : err);
+    });
 }
 
 app.listen(PORT, () => {
