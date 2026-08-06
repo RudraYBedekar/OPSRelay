@@ -13,6 +13,7 @@ import {
   verifyPassword,
 } from '../services/authService.js';
 import { ensureUserMemberId } from '../services/authMigration.js';
+import { seedWelcomeIncidentsIfNeeded } from '../services/welcomeIncidentService.js';
 
 export const authRouter = Router();
 
@@ -50,6 +51,11 @@ authRouter.post('/register', registerRateLimit, async (req, res, next) => {
 
     const user = await registerUser({ userId, email, password, name });
     await logAuthEvent('register', req, user.id, { userId: user.userId });
+    try {
+      await seedWelcomeIncidentsIfNeeded(user);
+    } catch {
+      // auth succeeds even if demo seed fails
+    }
 
     const token = signToken(user);
     res.status(201).json({
@@ -129,8 +135,6 @@ authRouter.post('/login', loginRateLimit, async (req, res, next) => {
     }
 
     clearLoginAttempts(req);
-    await touchLastLogin(userRow.id);
-    await logAuthEvent('login_success', req, userRow.id);
 
     const memberId = userRow.member_id || await ensureUserMemberId(userRow.id);
 
@@ -142,6 +146,15 @@ authRouter.post('/login', loginRateLimit, async (req, res, next) => {
       name: userRow.name,
       role: userRow.role === 'admin' ? 'admin' : 'operator',
     });
+
+    try {
+      await seedWelcomeIncidentsIfNeeded(user);
+    } catch {
+      // login succeeds even if demo seed fails
+    }
+
+    await touchLastLogin(userRow.id);
+    await logAuthEvent('login_success', req, userRow.id);
 
     const token = signToken(user);
     res.json({ token, user, expiresIn: process.env.JWT_EXPIRES_IN ?? '8h' });
