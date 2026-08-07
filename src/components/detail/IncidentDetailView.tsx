@@ -9,7 +9,8 @@ import { DuplicateCandidateBanner } from '../alerts/DuplicateCandidateBanner';
 import { McpCitationCard } from '../agent/McpCitationCard';
 import { apiService } from '../../services/apiService';
 import { useToast } from '../common/Toast';
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Server, User, Bot, Search, Loader2 } from 'lucide-react';
+import { ExportReportModal } from './ExportReportModal';
+import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Server, User, Bot, Search, Loader2, FileText } from 'lucide-react';
 import { timeAgo, formatDate } from '../../utils/formatters';
 
 interface IncidentDetailViewProps {
@@ -33,6 +34,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
   const [mcpResult, setMcpResult] = useState<Awaited<ReturnType<typeof apiService.queryInvestigator>> | null>(null);
   const [distinctBusy, setDistinctBusy] = useState(false);
   const [dismissDuplicate, setDismissDuplicate] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const confirmStatus = () => {
     if (pendingStatus) {
@@ -106,6 +108,13 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
             <option value="MITIGATED">Mitigated</option>
             <option value="RESOLVED">Resolved</option>
           </select>
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="ops-btn-secondary min-h-[44px] text-sm"
+          >
+            <FileText className="h-4 w-4" aria-hidden /> Generate handoff report
+          </button>
         </div>
       </div>
 
@@ -270,6 +279,10 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
         onConfirm={confirmStatus}
         onCancel={() => setPendingStatus(null)}
       />
+
+      {exportOpen && (
+        <ExportReportModal incident={incident} onClose={() => setExportOpen(false)} />
+      )}
     </div>
   );
 };

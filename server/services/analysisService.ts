@@ -4,6 +4,8 @@ import { extractIncidentFromNotes } from './llmService.js';
 import { parseExtractionResult } from '../schemas/extraction.js';
 import { scanAndRedactSecrets, assertNotesSafeForProcessing } from '../utils/redactSecrets.js';
 import { enqueuePostApprovalJobs } from './incidentJobService.js';
+import { indexIncident, type IncidentRecord } from './vectorService.js';
+import { projectIncidentEvidence } from './evidenceProjectionService.js';
 import type { AuthUser } from './authService.js';
 import { PROMPT_VERSION, type AnalysisStatus } from '../types/analysis.js';
 import { normalizeIncidentForSave } from '../utils/incidentTasks.js';
@@ -207,7 +209,7 @@ export async function approveAnalysisRun(
 ): Promise<Record<string, unknown>> {
   const validated = parseExtractionResult(draft);
 
-  return withTransaction(async (client) => {
+  const updated = await withTransaction(async (client) => {
     const run = await queryWithClient<{ status: string; owner_member_id: string }>(
       client,
       `SELECT status, owner_member_id FROM agent_runs
@@ -273,6 +275,50 @@ export async function approveAnalysisRun(
 
     await enqueuePostApprovalJobs(incidentId, client);
     return updated as Record<string, unknown>;
+  });
+
+  void syncPostApprovalSideEffects(incidentId).catch((err) => {
+    console.warn('Post-approval sync failed:', err instanceof Error ? err.message : err);
+  });
+
+  return updated;
+}
+
+async function syncPostApprovalSideEffects(incidentId: string): Promise<void> {
+  const row = await queryOne<{
+    data: IncidentRecord & {
+      ownerMemberId?: string;
+      analysisStatus?: string;
+      status?: string;
+      decisions?: Array<{ title: string; description?: string }>;
+      tasks?: Array<{ title: string }>;
+    };
+    updated_at: string;
+  }>(
+    'SELECT data, updated_at FROM incidents WHERE id = $1',
+    [incidentId],
+  );
+  if (!row?.data || row.data.analysisStatus !== 'approved') return;
+
+  const incident = row.data;
+  try {
+    await indexIncident(incident);
+  } catch {
+    // optional when Bedrock unavailable
+  }
+
+  await projectIncidentEvidence({
+    incidentId,
+    title: incident.title,
+    service: incident.service,
+    severity: incident.severity,
+    status: String(incident.status ?? 'INVESTIGATING'),
+    summary: incident.summary,
+    fixesApplied: incident.fixesApplied,
+    decisions: incident.decisions,
+    tasks: incident.tasks,
+    sourceUpdatedAt: row.updated_at,
+    ownerScope: incident.ownerMemberId?.slice(0, 8),
   });
 }
 

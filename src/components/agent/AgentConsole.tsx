@@ -35,9 +35,9 @@ interface LiveMessage {
 }
 
 const PROMPTS = [
-  'What fixed similar DB connection pool errors?',
-  'Recommended steps for a SEV-1 API outage',
-  'Have we seen auth-service OOM before?',
+  'What fixed similar payment-api webhook failures?',
+  'Have we seen payment-api connection pool saturation before?',
+  'Recommended steps for a SEV-1 payment-api outage',
 ];
 
 interface AgentConsoleProps {

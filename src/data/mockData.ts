@@ -534,9 +534,11 @@ export const RAW_LOG_SAMPLE_TEMPLATES = [
   },
   {
     id: 'log-006',
-    title: 'Stripe Webhook Failures',
+    title: 'payment-api — Stripe Webhook Failures (DEMO)',
     category: 'payments',
-    content: `[2026-07-23 14:20:00] ALERT stripe-webhook-handler: HTTP 503 on POST /webhooks/stripe — 847 failures in 10 min
+    content: `[DEMO — payment-api incident for OpsRelay live extract]
+
+[2026-07-23 14:20:00] ALERT payment-api/stripe-webhook-handler: HTTP 503 on POST /webhooks/stripe — 847 failures in 10 min
 [2026-07-23 14:21:15] LOG payment-api: Signature verification failed — clock skew 312s between pod and Stripe timestamp
 [2026-07-23 14:22:00] SLACK #inc-payments | jordan.lee: NTP drift on k8s node pool payments-np-3 after hypervisor maintenance.
 [2026-07-23 14:30:00] DECISION: Drained payments-np-3. Replayed failed webhooks from Stripe dashboard (event IDs logged).

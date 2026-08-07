@@ -9,6 +9,7 @@ interface NotesFormProps {
   onExtract: (notes: string) => void;
   isExtracting: boolean;
   step: 1 | 2 | 3;
+  savedIncidentId?: string;
 }
 
 const STEPS = [
@@ -17,7 +18,7 @@ const STEPS = [
   { n: 3, label: 'Review & approve' },
 ];
 
-export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, step }) => {
+export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, step, savedIncidentId }) => {
   const [templates, setTemplates] = useState<SampleLog[]>(RAW_LOG_SAMPLE_TEMPLATES);
   const [notes, setNotes] = useState(RAW_LOG_SAMPLE_TEMPLATES[0].content);
   const [activeSample, setActiveSample] = useState(RAW_LOG_SAMPLE_TEMPLATES[0].id);
@@ -26,8 +27,9 @@ export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, s
     apiService.getSampleLogs().then((logs) => {
       if (logs.length) {
         setTemplates(logs);
-        setNotes(logs[0].content);
-        setActiveSample(logs[0].id);
+        const demo = logs.find((l) => l.id === 'log-006') ?? logs[0];
+        setNotes(demo.content);
+        setActiveSample(demo.id);
       }
     }).catch(() => {});
   }, []);
@@ -86,6 +88,13 @@ export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, s
             ))}
           </div>
         </div>
+
+        {savedIncidentId && isExtracting && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            Incident saved as <span className="font-mono font-semibold">{savedIncidentId}</span>
+            {' '}— Bedrock is still analyzing. Your notes are already persisted in CockroachDB.
+          </div>
+        )}
 
         <form
           onSubmit={(e) => { e.preventDefault(); if (!isExtracting && notes.trim()) onExtract(notes); }}

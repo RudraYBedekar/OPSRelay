@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { ExtractionResult, Severity } from '../../types/incident';
 import { ShareIncidentDialog } from './ShareIncidentDialog';
 import { SeverityBadge } from '../common/SeverityBadge';
-import { CheckCircle2, ChevronDown, ChevronUp, ListTodo, RotateCcw, Save, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Clock, GitBranch, ListTodo, RotateCcw, Save, Loader2 } from 'lucide-react';
 
 interface ExtractionResultViewProps {
   result: ExtractionResult;
@@ -156,6 +156,49 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
             <ul className="mt-2 space-y-1 text-sm text-ops-subtext">
               {result.tasks.map((t, i) => (
                 <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2">{t.title}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(result.timeline?.length ?? 0) > 0 && (
+          <div>
+            <p className="ops-label flex items-center gap-1.5"><Clock className="h-4 w-4" /> Timeline ({result.timeline.length})</p>
+            <ol className="mt-2 space-y-2">
+              {result.timeline.map((e, i) => (
+                <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2 text-sm">
+                  <span className="font-mono text-xs text-ops-muted">{e.timestamp}</span>
+                  <span className="mx-2 text-ops-muted">·</span>
+                  <span className="font-medium text-ops-text">{e.title}</span>
+                  <p className="mt-1 text-ops-subtext">{e.description}</p>
+                  <p className="mt-0.5 text-xs text-ops-muted">{e.actor}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {(result.decisions?.length ?? 0) > 0 && (
+          <div>
+            <p className="ops-label flex items-center gap-1.5"><GitBranch className="h-4 w-4" /> Decisions ({result.decisions.length})</p>
+            <ul className="mt-2 space-y-2">
+              {result.decisions.map((d, i) => (
+                <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2 text-sm">
+                  <p className="font-medium text-ops-text">{d.title}</p>
+                  {d.description && <p className="mt-1 text-ops-subtext">{d.description}</p>}
+                  {d.impact && <p className="mt-1 text-xs text-emerald-700">{d.impact}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(result.suggestedFixes?.length ?? 0) > 0 && (
+          <div>
+            <p className="ops-label">Suggested fixes ({result.suggestedFixes.length})</p>
+            <ul className="mt-2 space-y-1 text-sm text-ops-subtext">
+              {result.suggestedFixes.map((fix, i) => (
+                <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2">✓ {fix}</li>
               ))}
             </ul>
           </div>
