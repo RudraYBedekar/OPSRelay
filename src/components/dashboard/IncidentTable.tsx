@@ -5,7 +5,7 @@ import { StatusBadge } from '../common/StatusBadge';
 import { EmptyState } from '../common/EmptyState';
 import { IncidentMobileCard } from './IncidentMobileCard';
 import { timeAgo } from '../../utils/formatters';
-import { ChevronRight, ChevronUp, ChevronDown, Search, Filter, AlertCircle } from 'lucide-react';
+import { CaretRight, CaretUp, CaretDown, MagnifyingGlass, Funnel, WarningCircle } from '@phosphor-icons/react';
 
 type SortKey = 'title' | 'severity' | 'service' | 'status' | 'updated' | 'owner';
 type SortDir = 'asc' | 'desc';
@@ -49,10 +49,10 @@ function SortBtn({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-0.5 hover:text-ops-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-200 rounded"
+      className="inline-flex items-center gap-0.5 hover:text-ops-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[rgba(1,118,211,0.3)] rounded"
     >
       {label}
-      {active && (dir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+      {active && (dir === 'asc' ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />)}
     </button>
   );
 }
@@ -148,14 +148,14 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
 
   return (
     <div className="ops-card overflow-hidden">
-      <div className="flex flex-col gap-3 border-b border-ops-border bg-slate-50/60 px-4 py-3 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-ops-text">
-          Incidents <span className="font-normal text-ops-muted">({filtered.length})</span>
+      <div className="flex flex-col gap-3 border-b border-ops-border bg-white px-4 py-3 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="ops-section-title">
+          Incidents <span className="font-normal text-ops-muted text-sm">({filtered.length})</span>
           {isRefreshing && <span className="ml-2 text-xs font-normal text-ops-muted">Refreshing…</span>}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[10rem] sm:max-w-[14rem]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ops-muted" />
+            <MagnifyingGlass size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ops-muted" aria-hidden />
             <input
               type="search"
               value={localSearch}
@@ -165,7 +165,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
               aria-label="Filter incidents"
             />
           </div>
-          <Filter className="hidden h-3.5 w-3.5 text-ops-muted sm:block" aria-hidden />
+          <Funnel size={14} className="hidden text-ops-muted sm:block" aria-hidden />
           <select
             value={severity}
             onChange={(e) => { setSeverity(e.target.value); setPage(0); }}
@@ -198,7 +198,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
       {filtered.length === 0 ? (
         <div className="p-8">
           <EmptyState
-            icon={AlertCircle}
+            icon={WarningCircle}
             title="No incidents match"
             description="Try clearing filters or adjusting your search terms."
           />
@@ -208,23 +208,23 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ops-border text-left text-[11px] font-medium uppercase tracking-wide text-ops-muted">
-                  <th className="px-5 py-3">
+                <tr className="border-b border-ops-border text-left text-[11px] font-semibold uppercase tracking-wide text-ops-muted bg-ops-bg">
+                  <th className="px-4 py-2.5">
                     <SortBtn label="Incident" active={sortKey === 'title'} dir={sortDir} onClick={() => toggleSort('title')} />
                   </th>
-                  <th className="px-5 py-3">
+                  <th className="px-4 py-2.5">
                     <SortBtn label="Severity" active={sortKey === 'severity'} dir={sortDir} onClick={() => toggleSort('severity')} />
                   </th>
-                  <th className="px-5 py-3">
+                  <th className="px-4 py-2.5">
                     <SortBtn label="Service" active={sortKey === 'service'} dir={sortDir} onClick={() => toggleSort('service')} />
                   </th>
-                  <th className="px-5 py-3">
+                  <th className="px-4 py-2.5">
                     <SortBtn label="Status" active={sortKey === 'status'} dir={sortDir} onClick={() => toggleSort('status')} />
                   </th>
-                  <th className="px-5 py-3">
+                  <th className="px-4 py-2.5">
                     <SortBtn label="Updated" active={sortKey === 'updated'} dir={sortDir} onClick={() => toggleSort('updated')} />
                   </th>
-                  <th className="px-5 py-3">
+                  <th className="px-4 py-2.5">
                     <SortBtn label="Owner" active={sortKey === 'owner'} dir={sortDir} onClick={() => toggleSort('owner')} />
                   </th>
                   <th className="px-5 py-3 w-8"><span className="sr-only">Actions</span></th>
@@ -235,23 +235,23 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                   <tr
                     key={inc.id}
                     onClick={() => onSelectIncident(inc)}
-                    className="group cursor-pointer transition-colors hover:bg-slate-50 focus-within:bg-slate-50"
+                    className="group cursor-pointer transition-colors duration-150 hover:bg-ops-cardHover focus-within:bg-ops-cardHover"
                   >
-                    <td className="px-5 py-4 max-w-xs">
+                    <td className="px-4 py-3 max-w-xs">
                       <p className="font-medium text-ops-text leading-snug break-words group-hover:text-brand">{inc.title}</p>
                       <p className="mt-0.5 font-mono text-[11px] text-ops-muted">{inc.id}</p>
                     </td>
-                    <td className="px-5 py-4"><SeverityBadge severity={inc.severity} size="sm" /></td>
-                    <td className="px-5 py-4">
-                      <span className="inline-block max-w-[8rem] truncate rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700" title={inc.service}>
+                    <td className="px-4 py-3"><SeverityBadge severity={inc.severity} size="sm" /></td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block max-w-[8rem] truncate text-xs font-medium text-ops-subtext" title={inc.service}>
                         {inc.service}
                       </span>
                     </td>
-                    <td className="px-5 py-4"><StatusBadge status={inc.status} /></td>
-                    <td className="px-5 py-4 text-xs text-ops-subtext whitespace-nowrap">{timeAgo(inc.updatedAt ?? inc.createdAt)}</td>
-                    <td className="px-5 py-4 text-xs text-ops-subtext">{inc.leadSRE}</td>
-                    <td className="px-5 py-4">
-                      <ChevronRight className="h-4 w-4 text-ops-muted group-hover:text-brand" aria-hidden />
+                    <td className="px-4 py-3"><StatusBadge status={inc.status} /></td>
+                    <td className="px-4 py-3 text-xs text-ops-subtext whitespace-nowrap">{timeAgo(inc.updatedAt ?? inc.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-ops-subtext">{inc.leadSRE}</td>
+                    <td className="px-4 py-3">
+                      <CaretRight size={16} className="text-ops-muted group-hover:text-brand" aria-hidden />
                     </td>
                   </tr>
                 ))}

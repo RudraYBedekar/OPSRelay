@@ -3,7 +3,7 @@ import type { Incident } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { StatusBadge } from '../common/StatusBadge';
 import { timeAgo } from '../../utils/formatters';
-import { ChevronRight } from 'lucide-react';
+import { CaretRight } from '@phosphor-icons/react';
 
 interface IncidentMobileCardProps {
   incident: Incident;
@@ -14,14 +14,14 @@ export const IncidentMobileCard: React.FC<IncidentMobileCardProps> = ({ incident
   <button
     type="button"
     onClick={() => onSelect(incident)}
-    className="w-full text-left ops-card p-4 hover:shadow-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 min-h-[44px]"
+    className="w-full text-left ops-card p-4 hover:shadow-md transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted min-h-[44px]"
   >
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-ops-text leading-snug break-words">{incident.title}</p>
         <p className="text-[11px] font-mono text-ops-muted mt-1">{incident.id}</p>
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-ops-muted mt-1" aria-hidden />
+      <CaretRight size={16} weight="regular" className="shrink-0 text-ops-muted mt-1" aria-hidden />
     </div>
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <SeverityBadge severity={incident.severity} size="sm" />

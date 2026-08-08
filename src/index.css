@@ -1,65 +1,107 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ops-bg: #F8FAFC;
+  /* Surfaces */
+  --color-ops-bg: #F7F8FA;
   --color-ops-sidebar: #FFFFFF;
   --color-ops-card: #FFFFFF;
-  --color-ops-cardHover: #F1F5F9;
-  --color-ops-border: #E2E8F0;
-  --color-ops-borderSubtle: #F1F5F9;
-  --color-ops-muted: #94A3B8;
-  --color-ops-text: #0F172A;
-  --color-ops-subtext: #64748B;
+  --color-ops-cardHover: #F3F4F6;
+  --color-ops-border: #E5E7EB;
+  --color-ops-borderSubtle: #F3F4F6;
 
-  --color-brand: #DC2626;
-  --color-brand-hover: #B91C1C;
-  --color-brand-light: #FEF2F2;
-  --color-cockroach-red: #DC2626;
-  --color-cockroach-redHover: #B91C1C;
+  /* Text */
+  --color-ops-muted: #9CA3AF;
+  --color-ops-text: #111827;
+  --color-ops-subtext: #6B7280;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-card-dark: var(--shadow-card);
-  --shadow-glow-red-sm: 0 0 0 3px rgba(220, 38, 38, 0.12);
+  /* Primary — Salesforce-inspired enterprise blue */
+  --color-brand: #0176D3;
+  --color-brand-hover: #014486;
+  --color-brand-light: #EEF4FF;
+  --color-brand-muted: #BAE6FD;
 
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius-lg: 0.75rem;
+  /* Legacy aliases (visual only) */
+  --color-cockroach-red: #0176D3;
+  --color-cockroach-redHover: #014486;
+
+  /* Status */
+  --color-success: #047857;
+  --color-warning: #B45309;
+  --color-critical: #B91C1C;
+  --color-info: #0369A1;
+
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-card: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --shadow-modal: 0 8px 24px rgba(17, 24, 39, 0.12);
+  --shadow-glow-red-sm: 0 0 0 3px rgba(1, 118, 211, 0.15);
+
+  --font-mono: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
 }
 
 body {
   background-color: var(--color-ops-bg);
   color: var(--color-ops-text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Design system utilities ── */
+/* ── Enterprise design system ── */
 .ops-card {
-  @apply rounded-xl border border-ops-border bg-white shadow-card;
+  @apply rounded-lg border border-ops-border bg-white;
+  box-shadow: var(--shadow-sm);
 }
 
 .ops-input {
-  @apply w-full rounded-lg border border-ops-border bg-white px-3 py-2 text-sm text-ops-text placeholder:text-ops-muted;
-  @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-red-100;
+  @apply w-full rounded-md border border-ops-border bg-white px-3 py-2 text-sm text-ops-text placeholder:text-ops-muted;
+  min-height: 2.25rem;
+  @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-[rgba(1,118,211,0.15)];
 }
 
 .ops-btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white;
-  @apply hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:pointer-events-none;
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 focus-visible:ring-offset-2;
+  @apply inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white;
+  min-height: 2.25rem;
+  @apply hover:bg-brand-hover transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(1,118,211,0.35)] focus-visible:ring-offset-2;
 }
 
 .ops-btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ops-border bg-white px-4 py-2 text-sm font-medium text-ops-text;
-  @apply hover:bg-ops-cardHover transition-colors;
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 focus-visible:ring-offset-2;
+  @apply inline-flex items-center justify-center gap-2 rounded-md border border-ops-border bg-white px-4 py-2 text-sm font-medium text-ops-text;
+  min-height: 2.25rem;
+  @apply hover:bg-ops-cardHover transition-colors duration-150;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(1,118,211,0.2)] focus-visible:ring-offset-2;
+}
+
+.ops-btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-ops-subtext;
+  min-height: 2.25rem;
+  @apply hover:bg-ops-cardHover hover:text-ops-text transition-colors duration-150;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(1,118,211,0.2)];
+}
+
+.ops-icon-btn {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-ops-subtext;
+  @apply hover:bg-ops-cardHover hover:text-ops-text transition-colors duration-150;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(1,118,211,0.25)];
 }
 
 .ops-label {
-  @apply block text-xs font-medium text-ops-subtext mb-1.5;
+  @apply block text-xs font-semibold uppercase tracking-wide text-ops-subtext mb-1.5;
+}
+
+.ops-page-title {
+  @apply text-2xl font-semibold tracking-tight text-ops-text;
+}
+
+.ops-section-title {
+  @apply text-base font-semibold text-ops-text;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #DC2626; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }

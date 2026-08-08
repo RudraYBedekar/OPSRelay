@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { ExtractionResult, Severity } from '../../types/incident';
 import { ShareIncidentDialog } from './ShareIncidentDialog';
 import { SeverityBadge } from '../common/SeverityBadge';
-import { CheckCircle2, ChevronDown, ChevronUp, Clock, GitBranch, ListTodo, RotateCcw, Save, Loader2 } from 'lucide-react';
+import { CheckCircle, CaretDown, CaretUp, Clock, GitBranch, ListChecks, ArrowCounterClockwise, FloppyDisk, CircleNotch } from '@phosphor-icons/react';
 
 interface ExtractionResultViewProps {
   result: ExtractionResult;
@@ -96,19 +96,19 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
               </button>
             )}
             <button type="button" onClick={onReset} className="ops-btn-secondary min-h-[44px] text-sm">
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Start over
+              <ArrowCounterClockwise size={14} weight="regular" aria-hidden /> Start over
             </button>
             {!approved ? (
               <button type="button" onClick={handleApproveClick} disabled={saving} className="ops-btn-primary min-h-[44px] text-sm">
                 {saving ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Approving…</>
+                  <><CircleNotch size={14} weight="regular" className="animate-spin" aria-hidden /> Approving…</>
                 ) : (
-                  <><Save className="h-3.5 w-3.5" aria-hidden /> Approve & finalize</>
+                  <><FloppyDisk size={14} weight="regular" aria-hidden /> Approve & finalize</>
                 )}
               </button>
             ) : (
               <span className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-800">
-                <CheckCircle2 className="h-4 w-4" aria-hidden /> Approved
+                <CheckCircle size={16} weight="regular" aria-hidden /> Approved
               </span>
             )}
           </div>
@@ -152,7 +152,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
 
         {(result.tasks?.length ?? 0) > 0 && (
           <div>
-            <p className="ops-label flex items-center gap-1.5"><ListTodo className="h-4 w-4" /> Suggested tasks ({result.tasks.length})</p>
+            <p className="ops-label flex items-center gap-1.5"><ListChecks size={16} weight="regular" aria-hidden /> Suggested tasks ({result.tasks.length})</p>
             <ul className="mt-2 space-y-1 text-sm text-ops-subtext">
               {result.tasks.map((t, i) => (
                 <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2">{t.title}</li>
@@ -163,7 +163,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
 
         {(result.timeline?.length ?? 0) > 0 && (
           <div>
-            <p className="ops-label flex items-center gap-1.5"><Clock className="h-4 w-4" /> Timeline ({result.timeline.length})</p>
+            <p className="ops-label flex items-center gap-1.5"><Clock size={16} weight="regular" aria-hidden /> Timeline ({result.timeline.length})</p>
             <ol className="mt-2 space-y-2">
               {result.timeline.map((e, i) => (
                 <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2 text-sm">
@@ -180,7 +180,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
 
         {(result.decisions?.length ?? 0) > 0 && (
           <div>
-            <p className="ops-label flex items-center gap-1.5"><GitBranch className="h-4 w-4" /> Decisions ({result.decisions.length})</p>
+            <p className="ops-label flex items-center gap-1.5"><GitBranch size={16} weight="regular" aria-hidden /> Decisions ({result.decisions.length})</p>
             <ul className="mt-2 space-y-2">
               {result.decisions.map((d, i) => (
                 <li key={i} className="rounded-lg border border-ops-border bg-white px-3 py-2 text-sm">
@@ -209,7 +209,7 @@ export const ExtractionResultView: React.FC<ExtractionResultViewProps> = ({
           onClick={() => setShowRaw((s) => !s)}
           className="flex items-center gap-1 text-xs text-ops-muted hover:text-ops-text"
         >
-          {showRaw ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {showRaw ? <CaretUp size={14} weight="regular" aria-hidden /> : <CaretDown size={14} weight="regular" aria-hidden />}
           {showRaw ? 'Hide' : 'Show'} raw notes
         </button>
         {showRaw && (

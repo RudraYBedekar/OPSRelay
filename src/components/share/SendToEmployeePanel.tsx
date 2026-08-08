@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { Incident } from '../../types/incident';
 import { apiService } from '../../services/apiService';
 import { useToast } from '../common/Toast';
-import { Send, UserCircle } from 'lucide-react';
+import { PaperPlaneTilt, UserCircle } from '@phosphor-icons/react';
 
 interface SendToEmployeePanelProps {
   incidents: Incident[];
@@ -50,8 +50,8 @@ export const SendToEmployeePanel: React.FC<SendToEmployeePanelProps> = ({
   return (
     <div className="ops-card p-5 md:p-6 space-y-5 max-w-2xl">
       <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-red-50 p-2 text-brand">
-          <Send className="h-5 w-5" aria-hidden />
+        <div className="rounded-lg bg-brand-light p-2 text-brand">
+          <PaperPlaneTilt size={20} weight="regular" aria-hidden />
         </div>
         <div>
           <h2 className="text-base font-semibold text-ops-text">Send to employee</h2>
@@ -70,7 +70,7 @@ export const SendToEmployeePanel: React.FC<SendToEmployeePanelProps> = ({
 
       {ownedIncidents.length === 0 ? (
         <div className="rounded-lg border border-dashed border-ops-border px-4 py-8 text-center">
-          <UserCircle className="mx-auto h-8 w-8 text-ops-muted" />
+          <UserCircle size={32} weight="regular" className="mx-auto text-ops-muted" aria-hidden />
           <p className="mt-2 text-sm font-medium text-ops-text">No incidents to share yet</p>
           <p className="mt-1 text-xs text-ops-muted">Create an incident first under New Incident.</p>
         </div>

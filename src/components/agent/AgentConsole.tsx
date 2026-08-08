@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Send, Sparkles, Bot, User, Database } from 'lucide-react';
+import { CircleNotch, PaperPlaneTilt, Sparkle, Robot, User, Database } from '@phosphor-icons/react';
 import { ChatMarkdown } from './ChatMarkdown';
 import { ChatSidebar, buildChatThreads, type ChatThread } from './ChatSidebar';
 import { MemorySourceCard } from './MemorySourceCard';
@@ -212,7 +212,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
           {/* Top bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ops-border px-4 py-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-brand" />
+              <Sparkle size={16} weight="regular" className="text-brand" aria-hidden />
               <span className="text-sm font-semibold text-ops-text">OpsRelay AI</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -244,7 +244,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                   disabled={agentMode === 'mcp'}
                   className="h-3.5 w-3.5 rounded border-ops-border text-brand"
                 />
-                <Database className="h-3.5 w-3.5" /> Save
+                <Database size={14} weight="regular" aria-hidden /> Save
               </label>
             </div>
           </div>
@@ -254,7 +254,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
             {messages.length === 0 && !loading && (
               <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
                 <div className="rounded-2xl bg-slate-100 p-4 text-ops-subtext mb-4">
-                  <Bot className="h-8 w-8" />
+                  <Robot size={32} weight="regular" aria-hidden />
                 </div>
                 <h3 className="text-lg font-semibold text-ops-text">How can I help with incidents?</h3>
                 <p className="mt-1 max-w-md text-sm text-ops-subtext">
@@ -279,8 +279,8 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                   {msg.role === 'assistant' && (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-brand mt-0.5">
-                      <Bot className="h-4 w-4" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-light text-brand mt-0.5">
+                      <Robot size={16} weight="regular" aria-hidden />
                     </div>
                   )}
                   <div className={`min-w-0 ${msg.role === 'user' ? 'max-w-[85%]' : 'flex-1'}`}>
@@ -332,7 +332,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                   </div>
                   {msg.role === 'user' && (
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-ops-subtext mt-0.5">
-                      <User className="h-4 w-4" />
+                      <User size={16} weight="regular" aria-hidden />
                     </div>
                   )}
                 </div>
@@ -340,8 +340,8 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
 
               {loading && (
                 <div className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-brand">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-light text-brand">
+                    <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden />
                   </div>
                   <p className="text-sm text-ops-muted pt-1">Searching incident memory…</p>
                 </div>
@@ -359,7 +359,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
           <div className="border-t border-ops-border bg-white px-4 py-4">
             <form
               onSubmit={(e) => { e.preventDefault(); run(); }}
-              className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-ops-border bg-slate-50 px-3 py-2 shadow-sm focus-within:border-brand/40 focus-within:ring-2 focus-within:ring-red-100"
+              className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-ops-border bg-slate-50 px-3 py-2 shadow-sm focus-within:border-brand/40 focus-within:ring-2 focus-within:ring-brand-muted"
             >
               <textarea
                 value={query}
@@ -381,7 +381,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                 className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-white disabled:opacity-40 hover:bg-brand/90"
                 aria-label="Send"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {loading ? <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden /> : <PaperPlaneTilt size={16} weight="regular" aria-hidden />}
               </button>
             </form>
             <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-ops-muted">

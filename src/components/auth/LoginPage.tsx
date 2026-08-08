@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Pulse, Lock, CircleNotch, WarningCircle } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
 
 interface LoginPageProps {
@@ -31,7 +31,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSwitchToRegister }) => {
       <div className="ops-card w-full max-w-md p-6 md:p-8 shadow-lg">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-white">
-            <Activity className="h-6 w-6" aria-hidden />
+            <Pulse size={24} weight="bold" aria-hidden />
           </div>
           <h1 className="text-xl font-semibold text-ops-text">OpsRelay Dashboard</h1>
           <p className="mt-1 text-sm text-ops-subtext">Sign in with email or user ID</p>
@@ -68,7 +68,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSwitchToRegister }) => {
 
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800" role="alert">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <WarningCircle size={16} weight="regular" className="mt-0.5 shrink-0" aria-hidden />
               <span>{error}</span>
             </div>
           )}
@@ -80,12 +80,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSwitchToRegister }) => {
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden />
                 Signing in…
               </>
             ) : (
               <>
-                <Lock className="h-4 w-4" aria-hidden />
+                <Lock size={16} weight="regular" aria-hidden />
                 Sign in
               </>
             )}

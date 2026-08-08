@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, X } from 'lucide-react';
+import { Camera, CircleNotch, X } from '@phosphor-icons/react';
 
 interface ChatCameraModalProps {
   open: boolean;
@@ -88,11 +88,11 @@ export const ChatCameraModal: React.FC<ChatCameraModalProps> = ({ open, onClose,
       <div className="ops-card w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between border-b border-ops-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Camera className="h-4 w-4 text-brand" aria-hidden />
+            <Camera size={16} weight="regular" className="text-brand" aria-hidden />
             <h3 className="text-sm font-semibold text-ops-text">Live camera</h3>
           </div>
           <button type="button" onClick={onClose} className="rounded p-1 text-ops-muted hover:bg-slate-100" aria-label="Close">
-            <X className="h-4 w-4" />
+            <X size={16} weight="regular" aria-hidden />
           </button>
         </div>
 
@@ -115,7 +115,7 @@ export const ChatCameraModal: React.FC<ChatCameraModalProps> = ({ open, onClose,
               disabled={Boolean(error) || capturing}
               className="ops-btn-primary flex-1 text-sm min-h-[40px]"
             >
-              {capturing ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Capture & send'}
+              {capturing ? <CircleNotch size={16} weight="regular" className="animate-spin mx-auto" aria-hidden /> : 'Capture & send'}
             </button>
           </div>
         </div>

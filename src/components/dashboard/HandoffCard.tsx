@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ShiftHandoff } from '../../types/incident';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle } from '@phosphor-icons/react';
 import { UserAvatar } from '../common/UserAvatar';
 import { firstName } from '../../utils/avatar';
 
@@ -81,16 +81,16 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
 
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-center min-w-[4.5rem]">
-              <p className="text-xl font-bold text-brand tabular-nums">{activeSevCount}</p>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-red-700/80 mt-0.5">Critical</p>
+            <div className="rounded-md border border-ops-border bg-white px-3 py-2 text-center min-w-[4.5rem]">
+              <p className={`text-xl font-semibold tabular-nums ${activeSevCount > 0 ? 'text-red-700' : 'text-ops-text'}`}>{activeSevCount}</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-ops-muted mt-0.5">Critical</p>
             </div>
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-center min-w-[4.5rem]">
-              <p className="text-xl font-bold text-amber-900 tabular-nums">{openIncidentCount}</p>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-amber-800/80 mt-0.5">Open</p>
+            <div className="rounded-md border border-ops-border bg-white px-3 py-2 text-center min-w-[4.5rem]">
+              <p className="text-xl font-semibold text-ops-text tabular-nums">{openIncidentCount}</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-ops-muted mt-0.5">Open</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center min-w-[4.5rem]">
-              <p className="text-xl font-bold text-ops-text tabular-nums">{openTasksCount}</p>
+            <div className="rounded-md border border-ops-border bg-white px-3 py-2 text-center min-w-[4.5rem]">
+              <p className="text-xl font-semibold text-ops-text tabular-nums">{openTasksCount}</p>
               <p className="text-[10px] font-medium uppercase tracking-wide text-ops-muted mt-0.5">Tasks</p>
             </div>
           </div>
@@ -109,7 +109,7 @@ export const HandoffCard: React.FC<HandoffCardProps> = ({
             >
               {acked ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4" aria-hidden /> Acknowledged
+                  <CheckCircle size={16} weight="regular" aria-hidden /> Acknowledged
                 </>
               ) : (
                 'Acknowledge handoff'

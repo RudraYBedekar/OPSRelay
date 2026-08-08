@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle,
-  Bot,
+  Warning,
+  Robot,
   Clock,
-  History,
-  Loader2,
+  ClockCounterClockwise,
+  CircleNotch,
   Play,
-  Radio,
-  RefreshCw,
+  Broadcast,
+  ArrowClockwise,
   Shield,
   UserCheck,
   Users,
-  Zap,
-} from 'lucide-react';
+  Lightning,
+} from '@phosphor-icons/react';
 import type { Incident } from '../../types/incident';
 import type { ActiveWarRoom, WarRoomState } from '../../types/commander';
 import { apiService } from '../../services/apiService';
@@ -200,7 +200,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white">
-            <Radio className="h-4 w-4" aria-hidden />
+            <Broadcast size={16} weight="regular" aria-hidden />
           </div>
           <div>
             <h2 className="text-base font-bold text-ops-text">Autonomous Incident Commander</h2>
@@ -213,7 +213,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
           className="ops-btn-secondary text-sm min-h-[40px]"
           disabled={loading}
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+          <ArrowClockwise size={16} weight="regular" className={loading ? 'animate-spin' : ''} aria-hidden />
           Refresh
         </button>
       </div>
@@ -226,7 +226,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
 
       {warning && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+          <Warning size={16} weight="regular" className="shrink-0 mt-0.5" aria-hidden />
           {warning}
         </div>
       )}
@@ -248,7 +248,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
                       onClick={() => setSelectedId(room.incidentId)}
                       className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
                         selectedId === room.incidentId
-                          ? 'border-brand bg-red-50'
+                          ? 'border-brand bg-brand-light'
                           : 'border-ops-border hover:bg-slate-50'
                       }`}
                     >
@@ -296,7 +296,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
                           disabled={busy}
                           className="ops-btn-primary text-xs px-2 py-1 min-h-0"
                         >
-                          <Play className="h-3 w-3" aria-hidden />
+                          <Play size={12} weight="fill" aria-hidden />
                           Launch
                         </button>
                       )}
@@ -312,10 +312,10 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
           {!warRoom ? (
             <div className="ops-card flex flex-col items-center justify-center p-12 text-center">
               {loading ? (
-                <Loader2 className="h-8 w-8 animate-spin text-brand" aria-hidden />
+                <CircleNotch size={32} weight="regular" className="animate-spin text-brand" aria-hidden />
               ) : (
                 <>
-                  <Bot className="h-10 w-10 text-ops-muted mb-3" aria-hidden />
+                  <Robot size={40} weight="regular" className="text-ops-muted mb-3" aria-hidden />
                   <p className="text-sm text-ops-subtext">
                     Select a war room or launch the commander on a critical incident.
                   </p>
@@ -347,7 +347,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => setShowReplay(true)} className="ops-btn-secondary text-sm min-h-[36px]">
-                      <History className="h-4 w-4" aria-hidden />
+                      <ClockCounterClockwise size={16} weight="regular" aria-hidden />
                       Replay
                     </button>
                     {onInspectIncident && (
@@ -365,7 +365,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className={`rounded-lg border p-3 ${warRoom.session.slaBreached ? 'border-red-300 bg-red-50' : 'border-ops-border bg-slate-50'}`}>
                     <div className="flex items-center gap-1.5 text-xs font-medium text-ops-muted">
-                      <Clock className="h-3.5 w-3.5" aria-hidden />
+                      <Clock size={14} weight="regular" aria-hidden />
                       Resolution SLA
                     </div>
                     <p className={`mt-1 text-lg font-bold ${warRoom.session.slaBreached ? 'text-red-700' : 'text-ops-text'}`}>
@@ -374,7 +374,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
                   </div>
                   <div className="rounded-lg border border-ops-border bg-slate-50 p-3">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-ops-muted">
-                      <UserCheck className="h-3.5 w-3.5" aria-hidden />
+                      <UserCheck size={14} weight="regular" aria-hidden />
                       Response SLA
                     </div>
                     <p className="mt-1 text-lg font-bold text-ops-text">
@@ -383,7 +383,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
                   </div>
                   <div className="rounded-lg border border-ops-border bg-slate-50 p-3">
                     <div className="flex items-center gap-1.5 text-xs font-medium text-ops-muted">
-                      <Shield className="h-3.5 w-3.5" aria-hidden />
+                      <Shield size={14} weight="regular" aria-hidden />
                       AI mode
                     </div>
                     <p className="mt-1 text-lg font-bold capitalize text-ops-text">{warRoom.mode}</p>
@@ -408,7 +408,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="ops-card p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Users className="h-4 w-4 text-brand" aria-hidden />
+                    <Users size={16} weight="regular" className="text-brand" aria-hidden />
                     <h4 className="text-sm font-semibold text-ops-text">Expert rankings</h4>
                   </div>
                   <ul className="space-y-2">
@@ -431,7 +431,7 @@ export const WarRoomPanel: React.FC<WarRoomPanelProps> = ({
 
                 <div className="ops-card p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Zap className="h-4 w-4 text-brand" aria-hidden />
+                    <Lightning size={16} weight="regular" className="text-brand" aria-hidden />
                     <h4 className="text-sm font-semibold text-ops-text">Similar incidents (vector memory)</h4>
                   </div>
                   {warRoom.similarIncidents.length === 0 ? (

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ShiftHandoff } from '../../types/incident';
-import { ArrowRight, CheckCircle2, Users } from 'lucide-react';
+import { ArrowRight, CheckCircle, Users } from '@phosphor-icons/react';
 
 interface ShiftHandoffBannerProps {
   handoff: ShiftHandoff;
@@ -15,12 +15,12 @@ export const ShiftHandoffBanner: React.FC<ShiftHandoffBannerProps> = ({ handoff,
       <div className="flex flex-col lg:flex-row lg:items-start gap-5">
         <div className="flex-1 space-y-3">
           <div className="flex items-center gap-2 text-brand">
-            <Users className="h-4 w-4" />
+            <Users size={16} weight="regular" aria-hidden />
             <span className="text-sm font-semibold">Shift handoff</span>
           </div>
           <p className="text-sm text-ops-text flex items-center gap-2 flex-wrap">
             <span>{handoff.outgoingLead.split('(')[0].trim()}</span>
-            <ArrowRight className="h-3.5 w-3.5 text-ops-muted" />
+            <ArrowRight size={14} weight="regular" className="text-ops-muted" aria-hidden />
             <span>{handoff.incomingLead.split('(')[0].trim()}</span>
           </p>
           <ul className="space-y-1.5">
@@ -51,7 +51,7 @@ export const ShiftHandoffBanner: React.FC<ShiftHandoffBannerProps> = ({ handoff,
             className={acked ? 'ops-btn-secondary text-emerald-700 border-emerald-200 bg-emerald-50' : 'ops-btn-primary'}
           >
             {acked ? (
-              <><CheckCircle2 className="h-4 w-4" /> Acknowledged</>
+              <><CheckCircle size={16} weight="regular" aria-hidden /> Acknowledged</>
             ) : (
               'Acknowledge handoff'
             )}

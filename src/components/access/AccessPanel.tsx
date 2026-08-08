@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import type { AccessGrant, AccessRequest } from '../../types/access';
 import { apiService } from '../../services/apiService';
 import { useToast } from '../common/Toast';
-import { X, UserPlus, Check, XCircle, Copy } from 'lucide-react';
+import { X, UserPlus, Check, XCircle, Copy } from '@phosphor-icons/react';
 
 interface AccessPanelProps {
   memberId: string;
@@ -84,7 +84,7 @@ export const AccessPanel: React.FC<AccessPanelProps> = ({ memberId, onClose }) =
             <p className="text-xs text-ops-muted mt-0.5">Share your member ID so others can request to view your incidents.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100" aria-label="Close">
-            <X className="h-4 w-4" />
+            <X size={16} weight="regular" aria-hidden />
           </button>
         </div>
 
@@ -94,14 +94,14 @@ export const AccessPanel: React.FC<AccessPanelProps> = ({ memberId, onClose }) =
             <div className="mt-1 flex items-center justify-between gap-2">
               <p className="font-mono text-sm font-semibold text-brand">{memberId}</p>
               <button type="button" onClick={() => void copyMemberId()} className="ops-btn-secondary text-xs py-1.5 px-2.5">
-                <Copy className="h-3.5 w-3.5" /> Copy
+                <Copy size={14} weight="regular" aria-hidden /> Copy
               </button>
             </div>
           </div>
 
           <form onSubmit={(e) => void sendRequest(e)} className="space-y-3">
             <p className="text-sm font-medium text-ops-text flex items-center gap-1.5">
-              <UserPlus className="h-4 w-4" /> Request access to someone&apos;s incidents
+              <UserPlus size={16} weight="regular" aria-hidden /> Request access to someone&apos;s incidents
             </p>
             <input
               type="text"
@@ -138,10 +138,10 @@ export const AccessPanel: React.FC<AccessPanelProps> = ({ memberId, onClose }) =
                         {r.message && <p className="text-xs text-ops-subtext mt-1">{r.message}</p>}
                         <div className="mt-2 flex gap-2">
                           <button type="button" onClick={() => void respond(r.id, true)} className="ops-btn-primary text-xs py-1.5 px-3">
-                            <Check className="h-3.5 w-3.5" /> Approve
+                            <Check size={14} weight="regular" aria-hidden /> Approve
                           </button>
                           <button type="button" onClick={() => void respond(r.id, false)} className="ops-btn-secondary text-xs py-1.5 px-3">
-                            <XCircle className="h-3.5 w-3.5" /> Reject
+                            <XCircle size={14} weight="regular" aria-hidden /> Reject
                           </button>
                         </div>
                       </li>

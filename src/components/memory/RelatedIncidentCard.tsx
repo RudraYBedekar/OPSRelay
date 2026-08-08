@@ -1,7 +1,7 @@
 import React from 'react';
 import type { RelatedIncident } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from '@phosphor-icons/react';
 
 interface RelatedIncidentCardProps {
   incident: RelatedIncident;
@@ -12,11 +12,11 @@ export const RelatedIncidentCard: React.FC<RelatedIncidentCardProps> = ({ incide
   <button
     type="button"
     onClick={() => onInspect(incident.id)}
-    className="w-full text-left ops-card p-4 hover:ring-2 hover:ring-red-100 hover:border-red-200 transition-all group"
+    className="w-full text-left ops-card p-4 hover:ring-2 hover:ring-brand-muted hover:border-brand-muted transition-all group"
   >
     <div className="flex items-start justify-between gap-2 mb-2">
       <span className="font-mono text-xs font-semibold text-brand">{incident.id}</span>
-      <ArrowUpRight className="h-3.5 w-3.5 text-ops-muted group-hover:text-brand transition-colors" />
+      <ArrowUpRight size={14} weight="regular" className="text-ops-muted group-hover:text-brand transition-colors" aria-hidden />
     </div>
     <p className="text-sm font-medium text-ops-text line-clamp-2 leading-snug">{incident.title}</p>
     <p className="text-xs text-ops-subtext mt-2 line-clamp-2">{incident.keyTakeaway}</p>

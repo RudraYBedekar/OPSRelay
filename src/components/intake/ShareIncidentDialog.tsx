@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, X } from 'lucide-react';
+import { PaperPlaneTilt, X } from '@phosphor-icons/react';
 
 interface ShareIncidentDialogProps {
   open: boolean;
@@ -35,7 +35,7 @@ export const ShareIncidentDialog: React.FC<ShareIncidentDialogProps> = ({
             <p className="mt-1 text-sm text-ops-subtext line-clamp-2">{incidentTitle}</p>
           </div>
           <button type="button" onClick={onClose} disabled={loading} className="rounded-lg p-2 hover:bg-slate-100" aria-label="Close">
-            <X className="h-4 w-4" />
+            <X size={16} weight="regular" aria-hidden />
           </button>
         </div>
 
@@ -79,7 +79,7 @@ export const ShareIncidentDialog: React.FC<ShareIncidentDialogProps> = ({
             >
               {loading ? 'Sending…' : (
                 <>
-                  <Send className="h-4 w-4" aria-hidden />
+                  <PaperPlaneTilt size={16} weight="regular" aria-hidden />
                   Save &amp; send
                 </>
               )}

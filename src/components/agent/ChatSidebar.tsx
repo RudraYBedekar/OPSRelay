@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquarePlus, Trash2, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { ChatCircleDots, Trash, SidebarSimple } from '@phosphor-icons/react';
 import type { MemoryChatMessage } from '../../types/incident';
 
 export interface ChatThread {
@@ -56,7 +56,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           className="rounded-lg p-2 text-ops-muted hover:bg-white hover:text-ops-text"
           title="Show chat history"
         >
-          <PanelLeft className="h-5 w-5" />
+          <SidebarSimple size={20} weight="regular" aria-hidden />
         </button>
         <button
           type="button"
@@ -64,7 +64,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           className="rounded-lg p-2 text-ops-muted hover:bg-white hover:text-brand"
           title="New chat"
         >
-          <MessageSquarePlus className="h-5 w-5" />
+          <ChatCircleDots size={20} weight="regular" aria-hidden />
         </button>
       </div>
     );
@@ -74,7 +74,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     <aside className="flex w-64 shrink-0 flex-col border-r border-ops-border bg-slate-50 md:w-72">
       <div className="flex items-center gap-2 border-b border-ops-border p-3">
         <button type="button" onClick={onNewChat} className="ops-btn-primary flex-1 min-h-[40px] text-xs gap-1.5">
-          <MessageSquarePlus className="h-4 w-4" /> New chat
+          <ChatCircleDots size={16} weight="regular" aria-hidden /> New chat
         </button>
         <button
           type="button"
@@ -82,7 +82,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           className="rounded-lg border border-ops-border bg-white p-2 text-ops-muted hover:text-ops-text min-h-[40px] min-w-[40px]"
           title="Hide sidebar"
         >
-          <PanelLeftClose className="h-4 w-4" />
+          <SidebarSimple size={16} weight="regular" aria-hidden />
         </button>
       </div>
 
@@ -97,7 +97,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             className="rounded p-1 text-ops-muted hover:bg-red-50 hover:text-red-600"
             title="Clear all chats"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash size={14} weight="regular" aria-hidden />
           </button>
         )}
       </div>

@@ -4,7 +4,7 @@ import { SeverityBadge } from '../common/SeverityBadge';
 import { EmptyState } from '../common/EmptyState';
 import { getTaskStatusBadgeProps } from '../../utils/formatters';
 import { formatDate, timeAgo } from '../../utils/formatters';
-import { Kanban, List } from 'lucide-react';
+import { Kanban, List } from '@phosphor-icons/react';
 
 interface OpenTaskBoardProps {
   tasks: ActionItemTask[];
@@ -66,7 +66,7 @@ export const OpenTaskBoard: React.FC<OpenTaskBoardProps> = ({
               title="Kanban board"
               className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs min-h-[36px] ${view === 'board' ? 'bg-slate-100 font-medium text-ops-text' : 'text-ops-muted'}`}
             >
-              <Kanban className="h-3.5 w-3.5" /> Board
+              <Kanban size={14} weight="regular" aria-hidden /> Board
             </button>
             <button
               type="button"
@@ -74,7 +74,7 @@ export const OpenTaskBoard: React.FC<OpenTaskBoardProps> = ({
               title="List view"
               className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs min-h-[36px] ${view === 'list' ? 'bg-slate-100 font-medium text-ops-text' : 'text-ops-muted'}`}
             >
-              <List className="h-3.5 w-3.5" /> List
+              <List size={14} weight="regular" aria-hidden /> List
             </button>
           </div>
           <select value={filter} onChange={(e) => setFilter(e.target.value)} className="ops-input w-auto py-1.5 text-sm">

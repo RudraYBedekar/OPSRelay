@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, UserPlus, Loader2, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Pulse, UserPlus, CircleNotch, WarningCircle, Eye, EyeSlash, ShieldCheck } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
 import {
   checkPasswordStrength,
@@ -66,7 +66,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
       <div className="ops-card w-full max-w-lg p-6 md:p-8 shadow-lg">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-white">
-            <Activity className="h-6 w-6" aria-hidden />
+            <Pulse size={24} weight="bold" aria-hidden />
           </div>
           <h1 className="text-xl font-semibold text-ops-text">Create your account</h1>
           <p className="mt-1 text-sm text-ops-subtext">
@@ -75,7 +75,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
         </div>
 
         <div className="mb-5 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <ShieldCheck size={16} weight="regular" className="mt-0.5 shrink-0" aria-hidden />
           <span>
             A unique member ID (e.g. MEM-A3F9B2C1) is assigned automatically. Your user ID must not match an existing account.
           </span>
@@ -144,7 +144,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-ops-muted hover:text-ops-text"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? <EyeSlash size={16} weight="regular" aria-hidden /> : <Eye size={16} weight="regular" aria-hidden />}
               </button>
             </div>
             {password && (
@@ -181,7 +181,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
 
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800" role="alert">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <WarningCircle size={16} weight="regular" className="mt-0.5 shrink-0" aria-hidden />
               <span>{error}</span>
             </div>
           )}
@@ -193,12 +193,12 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden />
                 Creating account…
               </>
             ) : (
               <>
-                <UserPlus className="h-4 w-4" aria-hidden />
+                <UserPlus size={16} weight="regular" aria-hidden />
                 Create account
               </>
             )}

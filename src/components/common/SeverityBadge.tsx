@@ -23,9 +23,9 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded border ${props.bg} ${sizeClasses[size]} transition-all`}
+      className={`inline-flex items-center gap-1.5 rounded-md border font-medium ${props.bg} ${sizeClasses[size]}`}
     >
-      <span className={`h-2 w-2 rounded-full ${props.indicator}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${props.indicator}`} />
       {showLabel ? props.label : severity}
     </span>
   );

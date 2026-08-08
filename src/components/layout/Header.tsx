@@ -1,5 +1,6 @@
 import React from 'react';
-import { Database, Menu, Search, Plus } from 'lucide-react';
+import { Database, List, MagnifyingGlass, Plus } from '@phosphor-icons/react';
+import { ICON_SIZE } from '../common/iconTypes';
 
 interface HeaderProps {
   onOpenMobileSidebar: () => void;
@@ -23,11 +24,16 @@ export const Header: React.FC<HeaderProps> = ({
         onClick={onOpenMobileSidebar}
         className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg border border-ops-border text-ops-subtext"
       >
-        <Menu className="h-5 w-5" />
+        <List size={ICON_SIZE.page} weight="regular" aria-hidden />
       </button>
 
       <div className="relative flex-1 max-w-md hidden sm:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ops-muted pointer-events-none" />
+        <MagnifyingGlass
+          size={16}
+          weight="regular"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-ops-muted pointer-events-none"
+          aria-hidden
+        />
         <input
           type="search"
           placeholder="Search incidents by ID, service, or title…"
@@ -45,12 +51,12 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'bg-red-50 text-red-700 border-red-200'
             }`}
           >
-            <Database className="h-3.5 w-3.5" />
+            <Database size={14} weight="regular" aria-hidden />
             {dbConnected ? 'Live' : 'Offline'}
           </span>
         )}
         <button type="button" onClick={onOpenIntake} className="ops-btn-primary h-9 px-4">
-          <Plus className="h-4 w-4" />
+          <Plus size={16} weight="bold" aria-hidden />
           <span className="hidden sm:inline">New incident</span>
         </button>
       </div>

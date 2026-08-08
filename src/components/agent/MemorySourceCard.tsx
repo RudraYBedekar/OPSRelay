@@ -2,7 +2,7 @@ import React from 'react';
 import type { RelatedIncident } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { similarityLabel } from '../../utils/similarity';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from '@phosphor-icons/react';
 
 interface MemorySourceCardProps {
   incident: RelatedIncident;
@@ -41,7 +41,7 @@ export const MemorySourceCard: React.FC<MemorySourceCardProps> = ({ incident, on
           title="Open incident"
           className="ops-btn-secondary text-[11px] py-1 px-2 min-h-[36px]"
         >
-          Open <ArrowUpRight className="h-3 w-3" aria-hidden />
+          Open <ArrowUpRight size={12} weight="regular" aria-hidden />
         </button>
       </div>
     </div>

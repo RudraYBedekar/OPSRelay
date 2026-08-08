@@ -1,6 +1,6 @@
 import React from 'react';
 import type { DashboardMetrics } from '../../types/incident';
-import { AlertTriangle, Clock, Kanban, Layers, Timer } from 'lucide-react';
+import { WarningDiamond, Clock, ListChecks, Stack, Timer } from '@phosphor-icons/react';
 import { MetricCard } from '../common/MetricCard';
 
 interface MetricsGridProps {
@@ -25,7 +25,7 @@ export const MetricsGrid: React.FC<MetricsGridProps> = ({
       label="Open incidents"
       value={openIncidentCount}
       subtitle={`${metrics.activeSev0Sev1} critical · ${resolvedIncidentCount} resolved`}
-      icon={Layers}
+      icon={Stack}
       highlight={openIncidentCount > 0}
       onClick={onOpenClick}
     />
@@ -33,7 +33,7 @@ export const MetricsGrid: React.FC<MetricsGridProps> = ({
       label="Critical (SEV-0/1)"
       value={metrics.activeSev0Sev1}
       subtitle="Open high-severity incidents"
-      icon={AlertTriangle}
+      icon={WarningDiamond}
       highlight={metrics.activeSev0Sev1 > 0}
       onClick={onCriticalClick}
     />
@@ -53,7 +53,7 @@ export const MetricsGrid: React.FC<MetricsGridProps> = ({
       label="Open tasks"
       value={metrics.openTasksCount}
       subtitle="Action items not done"
-      icon={Kanban}
+      icon={ListChecks}
       onClick={onTasksClick}
     />
   </div>

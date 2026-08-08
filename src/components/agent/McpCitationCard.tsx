@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Database } from 'lucide-react';
+import { ArrowSquareOut, Database } from '@phosphor-icons/react';
 import type { McpCitation } from '../../types/investigator';
 
 interface McpCitationCardProps {
@@ -17,7 +17,7 @@ export const McpCitationCard: React.FC<McpCitationCardProps> = ({ citation, onIn
           <p className="text-[11px] text-ops-muted font-mono">{citation.citationId}</p>
         </div>
         <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-          <Database className="h-3 w-3" aria-hidden /> {label}
+          <Database size={12} weight="regular" aria-hidden /> {label}
         </span>
       </div>
       <p className="text-xs leading-relaxed text-ops-subtext line-clamp-4">{citation.excerpt}</p>
@@ -40,7 +40,7 @@ export const McpCitationCard: React.FC<McpCitationCardProps> = ({ citation, onIn
             className="inline-flex items-center gap-1 text-brand hover:underline"
           >
             {citation.incidentId}
-            <ExternalLink className="h-3 w-3" aria-hidden />
+            <ArrowSquareOut size={12} weight="regular" aria-hidden />
           </button>
         )}
       </div>

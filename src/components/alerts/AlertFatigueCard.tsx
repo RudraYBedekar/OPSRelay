@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BellOff, ShieldAlert } from 'lucide-react';
+import { BellSlash, ShieldWarning } from '@phosphor-icons/react';
 import { apiService } from '../../services/apiService';
 import type { AlertIncidentStats } from '../../types/alertFatigue';
 
@@ -26,7 +26,7 @@ export const AlertFatigueCard: React.FC<AlertFatigueCardProps> = ({ incidentId }
   return (
     <div className="ops-card border-amber-200 bg-amber-50/60 p-5 flex items-start gap-3">
       <div className="rounded-lg bg-amber-100 p-2 text-amber-700 shrink-0">
-        <BellOff className="h-4 w-4" aria-hidden />
+        <BellSlash size={16} weight="regular" aria-hidden />
       </div>
       <div>
         <div className="flex items-center gap-2">
@@ -37,7 +37,7 @@ export const AlertFatigueCard: React.FC<AlertFatigueCardProps> = ({ incidentId }
         </div>
         <p className="mt-1 text-sm text-amber-900/90">{stats.summaryMessage}</p>
         <p className="mt-2 text-xs text-amber-800/80 flex items-center gap-1">
-          <ShieldAlert className="h-3.5 w-3.5" aria-hidden />
+          <ShieldWarning size={14} weight="regular" aria-hidden />
           Similar alerts are flagged after save — incidents are never blocked at intake.
         </p>
       </div>

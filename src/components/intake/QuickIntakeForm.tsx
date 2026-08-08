@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Incident, Severity } from '../../types/incident';
 import { buildQuickIncident } from '../../utils/quickIncident';
 import { ShareIncidentDialog } from './ShareIncidentDialog';
-import { Save, Loader2, Zap } from 'lucide-react';
+import { FloppyDisk, CircleNotch, Lightning } from '@phosphor-icons/react';
 
 interface QuickIntakeFormProps {
   onSave: (incident: Incident, shareWithMemberId?: string) => Promise<void>;
@@ -77,7 +77,7 @@ export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
     <div className="ops-card p-5 md:p-6 space-y-5">
       <div className="flex items-start gap-3">
         <div className="rounded-lg bg-amber-50 p-2 text-amber-700">
-          <Zap className="h-5 w-5" aria-hidden />
+          <Lightning size={20} weight="regular" aria-hidden />
         </div>
         <div>
           <h2 className="text-base font-semibold text-ops-text">Quick add</h2>
@@ -156,7 +156,7 @@ export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
               type="checkbox"
               checked={alsoSaveLog}
               onChange={(e) => setAlsoSaveLog(e.target.checked)}
-              className="h-4 w-4 rounded border-ops-border text-brand focus:ring-red-200"
+              className="h-4 w-4 rounded border-ops-border text-brand focus:ring-brand-muted"
             />
             Also save as sample log (reuse in AI intake later)
           </label>
@@ -170,9 +170,9 @@ export const QuickIntakeForm: React.FC<QuickIntakeFormProps> = ({
           )}
           <button type="submit" disabled={!canSave} className="ops-btn-primary min-h-[44px] min-w-[140px]">
             {saving ? (
-              <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Saving…</>
+              <><CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden /> Saving…</>
             ) : (
-              <><Save className="h-4 w-4" aria-hidden /> Save to DB</>
+              <><FloppyDisk size={16} weight="regular" aria-hidden /> Save to DB</>
             )}
           </button>
         </div>

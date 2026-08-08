@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, CircleNotch } from '@phosphor-icons/react';
 import { RAW_LOG_SAMPLE_TEMPLATES } from '../../data/mockData';
 import { apiService } from '../../services/apiService';
 
@@ -46,7 +46,7 @@ export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, s
           <React.Fragment key={n}>
             <div
               className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
-                step >= n ? 'bg-red-50 text-brand' : 'bg-slate-100 text-ops-muted'
+                step >= n ? 'bg-brand-light text-brand' : 'bg-slate-100 text-ops-muted'
               }`}
             >
               <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
@@ -77,9 +77,9 @@ export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, s
                 key={tmpl.id}
                 type="button"
                 onClick={() => pickSample(tmpl)}
-                className={`rounded-full border px-3 py-1.5 text-xs transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 ${
+                className={`rounded-full border px-3 py-1.5 text-xs transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
                   activeSample === tmpl.id
-                    ? 'border-red-200 bg-red-50 font-medium text-brand'
+                    ? 'border-brand-muted bg-brand-light font-medium text-brand'
                     : 'border-ops-border text-ops-subtext hover:border-slate-300 hover:text-ops-text'
                 }`}
               >
@@ -126,9 +126,9 @@ export const NotesForm: React.FC<NotesFormProps> = ({ onExtract, isExtracting, s
               className="ops-btn-primary min-h-[44px] min-w-[160px]"
             >
               {isExtracting ? (
-                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Step 2 — Saving & analyzing…</>
+                <><CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden /> Step 2 — Saving & analyzing…</>
               ) : (
-                <><FileText className="h-4 w-4" aria-hidden /> Step 2 — Save & analyze</>
+                <><FileText size={16} weight="regular" aria-hidden /> Step 2 — Save & analyze</>
               )}
             </button>
           </div>

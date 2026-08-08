@@ -71,7 +71,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onLogout={onLogout}
         onOpenAccess={onOpenAccess}
       />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 md:px-6 md:py-6">{children}</main>
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
     </div>
   </div>
 );

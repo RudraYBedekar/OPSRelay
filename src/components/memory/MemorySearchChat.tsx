@@ -2,16 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { MemoryChatMessage } from '../../types/incident';
 import { RelatedIncidentCard } from './RelatedIncidentCard';
 import {
-  BrainCircuit,
-  Send,
-  Sparkles,
-  Bot,
+  Brain,
+  PaperPlaneTilt,
+  Sparkle,
+  Robot,
   User,
-  Trash2,
+  Trash,
   BookOpen,
-  Loader2,
-  Terminal
-} from 'lucide-react';
+  CircleNotch,
+  Terminal,
+} from '@phosphor-icons/react';
 
 interface MemorySearchChatProps {
   chats: MemoryChatMessage[];
@@ -60,7 +60,7 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
       <div className="flex items-center justify-between px-6 py-4 border-b border-ops-border bg-ops-sidebar">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-cockroach-red/15 p-2 text-cockroach-red border border-cockroach-red/30">
-            <BrainCircuit className="h-5 w-5" />
+            <Brain size={20} weight="regular" aria-hidden />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -81,14 +81,14 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
           onClick={onClearChats}
           className="flex items-center gap-1.5 rounded bg-ops-card hover:bg-ops-cardHover border border-ops-border px-3 py-1.5 text-xs font-mono text-ops-subtext hover:text-white transition-colors"
         >
-          <Trash2 className="h-3.5 w-3.5" /> Clear Stream
+          <Trash size={14} weight="regular" aria-hidden /> Clear Stream
         </button>
       </div>
 
       {/* Prompt Suggestion Chips */}
       <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-ops-border bg-ops-bg/50">
         <span className="text-xs font-mono text-ops-muted flex items-center gap-1">
-          <Terminal className="h-3.5 w-3.5 text-cockroach-red" /> Suggested Queries:
+          <Terminal size={14} weight="regular" className="text-cockroach-red" aria-hidden /> Suggested Queries:
         </span>
         {samplePrompts.map((prompt, idx) => (
           <button
@@ -111,7 +111,7 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
           >
             {msg.sender === 'assistant' && (
               <div className="h-8 w-8 rounded-lg bg-cockroach-red text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-glow-red-sm">
-                <Bot className="h-4 w-4" />
+                <Robot size={16} weight="regular" aria-hidden />
               </div>
             )}
 
@@ -135,7 +135,7 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
               {msg.matchedIncidents && msg.matchedIncidents.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-ops-border space-y-3">
                   <div className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-cockroach-red" />
+                    <Sparkle size={14} weight="regular" className="text-cockroach-red" aria-hidden />
                     Top Vector Similarity Matches ({msg.matchedIncidents.length})
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -154,7 +154,7 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
               {msg.suggestedRunbooks && msg.suggestedRunbooks.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-ops-border space-y-2">
                   <div className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <BookOpen className="h-3.5 w-3.5 text-amber-400" />
+                    <BookOpen size={14} weight="regular" className="text-amber-400" aria-hidden />
                     Recommended Operations Runbook
                   </div>
                   {msg.suggestedRunbooks.map((rb, idx) => (
@@ -183,7 +183,7 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
 
             {msg.sender === 'user' && (
               <div className="h-8 w-8 rounded-lg bg-ops-sidebar border border-ops-border text-ops-subtext flex items-center justify-center font-bold text-xs shrink-0">
-                <User className="h-4 w-4" />
+                <User size={16} weight="regular" aria-hidden />
               </div>
             )}
           </div>
@@ -192,10 +192,10 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
         {isQuerying && (
           <div className="flex items-center gap-3 text-xs font-mono text-cockroach-red">
             <div className="h-8 w-8 rounded-lg bg-cockroach-red/20 text-cockroach-red flex items-center justify-center border border-cockroach-red/40 animate-pulse">
-              <Bot className="h-4 w-4" />
+              <Robot size={16} weight="regular" aria-hidden />
             </div>
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden />
               <span>OpsRelay scanning vector memory embeddings & incident logs...</span>
             </div>
           </div>
@@ -219,7 +219,7 @@ export const MemorySearchChat: React.FC<MemorySearchChatProps> = ({
             disabled={!inputText.trim() || isQuerying}
             className="absolute right-2 p-2 rounded-md bg-cockroach-red hover:bg-cockroach-redHover text-white disabled:opacity-40 transition-all shadow-glow-red-sm"
           >
-            <Send className="h-4 w-4" />
+            <PaperPlaneTilt size={16} weight="regular" aria-hidden />
           </button>
         </div>
       </form>

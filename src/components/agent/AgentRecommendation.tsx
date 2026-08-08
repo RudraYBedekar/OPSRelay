@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot } from 'lucide-react';
+import { Robot } from '@phosphor-icons/react';
 import { parseAgentSections, stripMarkdownInline } from '../../utils/formatAgentAnswer';
 
 interface AgentRecommendationProps {
@@ -75,7 +75,7 @@ export const AgentRecommendation: React.FC<AgentRecommendationProps> = ({ answer
       <div className="border-b border-ops-border bg-slate-50/80 px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-white p-2 text-ops-subtext ring-1 ring-ops-border">
-            <Bot className="h-4 w-4" aria-hidden />
+            <Robot size={16} weight="regular" aria-hidden />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-ops-text">Agent recommendation</h3>

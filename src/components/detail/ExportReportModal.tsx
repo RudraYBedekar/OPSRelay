@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Incident } from '../../types/incident';
-import { FileText, Copy, Check, Download, X } from 'lucide-react';
+import { FileText, Copy, Check, DownloadSimple, X } from '@phosphor-icons/react';
 
 interface ExportReportModalProps {
   incident: Incident;
@@ -102,13 +102,13 @@ ${nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
       <div className="w-full max-w-3xl rounded-xl border border-ops-border bg-white p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between border-b border-ops-border pb-3">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-brand" />
+            <FileText size={20} weight="regular" className="text-brand" aria-hidden />
             <h3 className="text-base font-semibold text-ops-text">
               Handoff Report: {incident.id}
             </h3>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1 text-ops-muted hover:text-ops-text">
-            <X className="h-5 w-5" />
+            <X size={20} weight="regular" aria-hidden />
           </button>
         </div>
 
@@ -124,7 +124,7 @@ ${nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
               onClick={handleCopy}
               className="ops-btn-secondary text-xs min-h-[36px]"
             >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? <Check size={14} weight="regular" className="text-emerald-600" aria-hidden /> : <Copy size={14} weight="regular" aria-hidden />}
               {copied ? 'Copied' : 'Copy'}
             </button>
             <button
@@ -132,7 +132,7 @@ ${nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
               onClick={handleDownload}
               className="ops-btn-primary text-xs min-h-[36px]"
             >
-              <Download className="h-3.5 w-3.5" /> Download .md
+              <DownloadSimple size={14} weight="regular" aria-hidden /> Download .md
             </button>
           </div>
         </div>

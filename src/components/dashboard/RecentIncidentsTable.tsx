@@ -3,7 +3,7 @@ import type { Incident } from '../../types/incident';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { StatusBadge } from '../common/StatusBadge';
 import { timeAgo } from '../../utils/formatters';
-import { ChevronRight, Filter } from 'lucide-react';
+import { CaretRight, Funnel } from '@phosphor-icons/react';
 
 interface RecentIncidentsTableProps {
   incidents: Incident[];
@@ -34,7 +34,7 @@ export const RecentIncidentsTable: React.FC<RecentIncidentsTableProps> = ({
           Incidents <span className="text-ops-muted font-normal">({filtered.length})</span>
         </h2>
         <div className="flex items-center gap-2">
-          <Filter className="h-3.5 w-3.5 text-ops-muted" />
+          <Funnel size={14} weight="regular" className="text-ops-muted" aria-hidden />
           <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="text-xs ops-input py-1.5 w-auto">
             <option value="ALL">All severity</option>
             <option value="SEV-0">SEV-0</option>
@@ -87,7 +87,7 @@ export const RecentIncidentsTable: React.FC<RecentIncidentsTableProps> = ({
                   <td className="px-5 py-4"><StatusBadge status={inc.status} /></td>
                   <td className="px-5 py-4 text-xs text-ops-subtext">{timeAgo(inc.createdAt)}</td>
                   <td className="px-5 py-4">
-                    <ChevronRight className="h-4 w-4 text-ops-muted group-hover:text-brand transition-colors" />
+                    <CaretRight size={16} weight="regular" className="text-ops-muted group-hover:text-brand transition-colors" aria-hidden />
                   </td>
                 </tr>
               ))

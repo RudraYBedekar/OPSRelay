@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Terminal, ArrowRight } from 'lucide-react';
+import { WarningCircle, Terminal, ArrowRight } from '@phosphor-icons/react';
 
 interface ActiveAlertsWidgetProps {
   onOpenIntake: () => void;
@@ -28,7 +28,7 @@ export const ActiveAlertsWidget: React.FC<ActiveAlertsWidgetProps> = ({ onOpenIn
     <div className="rounded-xl border border-ops-border bg-ops-card p-5 space-y-4 shadow-card-dark">
       <div className="flex items-center justify-between border-b border-ops-border pb-3">
         <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-cockroach-red" />
+          <WarningCircle size={16} weight="regular" className="text-cockroach-red" aria-hidden />
           <h3 className="font-mono text-sm font-bold uppercase text-white tracking-wider">
             Active Cluster Telemetry Alerts
           </h3>
@@ -55,7 +55,7 @@ export const ActiveAlertsWidget: React.FC<ActiveAlertsWidgetProps> = ({ onOpenIn
               className="flex items-center gap-1 text-xs font-mono text-cockroach-red hover:underline"
             >
               <span>Auto-Ingest</span>
-              <ArrowRight className="h-3 w-3" />
+              <ArrowRight size={12} weight="regular" aria-hidden />
             </button>
           </div>
         ))}
@@ -66,7 +66,7 @@ export const ActiveAlertsWidget: React.FC<ActiveAlertsWidgetProps> = ({ onOpenIn
           onClick={onOpenMemory}
           className="flex items-center gap-1.5 text-ops-subtext hover:text-white transition-colors"
         >
-          <Terminal className="h-3.5 w-3.5 text-cockroach-red" />
+          <Terminal size={14} weight="regular" className="text-cockroach-red" aria-hidden />
           <span>Ask OpsRelay RAG Memory...</span>
         </button>
       </div>

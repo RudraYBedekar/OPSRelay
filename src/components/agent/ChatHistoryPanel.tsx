@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { MemoryChatMessage } from '../../types/incident';
 import { MemorySourceCard } from '../agent/MemorySourceCard';
-import { History, ChevronDown, ChevronUp, User, Bot, Trash2 } from 'lucide-react';
+import { ClockCounterClockwise, CaretDown, CaretUp, User, Robot, Trash } from '@phosphor-icons/react';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface ChatHistoryPanelProps {
@@ -42,7 +42,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
             onClick={() => setOpen((o) => !o)}
             className="flex flex-1 items-center gap-2 text-left min-h-[44px]"
           >
-            <History className="h-4 w-4 text-ops-subtext" aria-hidden />
+            <ClockCounterClockwise size={16} weight="regular" className="text-ops-subtext" aria-hidden />
             <span className="text-sm font-semibold text-ops-text">
               Saved chat history ({pairs.length})
             </span>
@@ -51,7 +51,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
                 CockroachDB
               </span>
             )}
-            {open ? <ChevronUp className="h-4 w-4 text-ops-muted ml-auto" /> : <ChevronDown className="h-4 w-4 text-ops-muted ml-auto" />}
+            {open ? <CaretUp size={16} weight="regular" className="text-ops-muted ml-auto" aria-hidden /> : <CaretDown size={16} weight="regular" className="text-ops-muted ml-auto" aria-hidden />}
           </button>
           <button
             type="button"
@@ -59,7 +59,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
             className="ops-btn-secondary text-xs py-1 px-2 min-h-[36px] shrink-0"
             title="Clear all saved chats"
           >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden /> Clear
+            <Trash size={14} weight="regular" aria-hidden /> Clear
           </button>
         </div>
 
@@ -70,7 +70,7 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
                 {pair.user && (
                   <div className="flex gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-ops-subtext">
-                      <User className="h-4 w-4" aria-hidden />
+                      <User size={16} weight="regular" aria-hidden />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-medium text-ops-muted">{pair.user.timestamp} · You</p>
@@ -83,8 +83,8 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
                 )}
                 {pair.assistant && (
                   <div className="flex gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-brand">
-                      <Bot className="h-4 w-4" aria-hidden />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-light text-brand">
+                      <Robot size={16} weight="regular" aria-hidden />
                     </div>
                     <div className="min-w-0 flex-1 space-y-3">
                       <p className="text-[11px] font-medium text-ops-muted">

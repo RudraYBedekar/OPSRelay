@@ -10,7 +10,7 @@ import { McpCitationCard } from '../agent/McpCitationCard';
 import { apiService } from '../../services/apiService';
 import { useToast } from '../common/Toast';
 import { ExportReportModal } from './ExportReportModal';
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Server, User, Bot, Search, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Calendar, CaretDown, CaretUp, HardDrives, User, Robot, MagnifyingGlass, CircleNotch, FileText } from '@phosphor-icons/react';
 import { timeAgo, formatDate } from '../../utils/formatters';
 
 interface IncidentDetailViewProps {
@@ -73,7 +73,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <button type="button" onClick={onBack} className="ops-btn-secondary min-h-[44px] text-sm">
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+        <ArrowLeft size={16} weight="regular" aria-hidden /> Back
       </button>
 
       <div className="ops-card p-5 md:p-6 space-y-4">
@@ -86,9 +86,9 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
         <p className="text-sm leading-relaxed text-ops-subtext">{incident.summary}</p>
 
         <div className="flex flex-wrap gap-4 border-t border-ops-border pt-4 text-sm text-ops-subtext">
-          <span className="flex items-center gap-1.5"><Server className="h-4 w-4" aria-hidden /> {incident.service} / {incident.component}</span>
-          <span className="flex items-center gap-1.5"><User className="h-4 w-4" aria-hidden /> {incident.leadSRE}</span>
-          <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" aria-hidden /> {formatDate(incident.createdAt)} ({timeAgo(incident.createdAt)})</span>
+          <span className="flex items-center gap-1.5"><HardDrives size={16} weight="regular" aria-hidden /> {incident.service} / {incident.component}</span>
+          <span className="flex items-center gap-1.5"><User size={16} weight="regular" aria-hidden /> {incident.leadSRE}</span>
+          <span className="flex items-center gap-1.5"><Calendar size={16} weight="regular" aria-hidden /> {formatDate(incident.createdAt)} ({timeAgo(incident.createdAt)})</span>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -113,7 +113,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
             onClick={() => setExportOpen(true)}
             className="ops-btn-secondary min-h-[44px] text-sm"
           >
-            <FileText className="h-4 w-4" aria-hidden /> Generate handoff report
+            <FileText size={16} weight="regular" aria-hidden /> Generate handoff report
           </button>
         </div>
       </div>
@@ -133,7 +133,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
       {apiService.isUsingCrdb() && (
         <div className="ops-card p-5 md:p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-brand" aria-hidden />
+            <MagnifyingGlass size={16} weight="regular" className="text-brand" aria-hidden />
             <h2 className="text-sm font-semibold text-ops-text">Investigate with MCP</h2>
           </div>
           <p className="text-xs text-ops-subtext">
@@ -152,7 +152,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
               disabled={mcpLoading || !mcpQuestion.trim()}
               className="ops-btn-primary min-h-[44px] text-sm"
             >
-              {mcpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Query'}
+              {mcpLoading ? <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden /> : 'Query'}
             </button>
           </div>
           {mcpResult && (
@@ -201,7 +201,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
 
       {incident.aiConfidence > 0 && (
         <div className="ops-card p-5 flex items-start gap-3">
-          <div className="rounded-lg bg-slate-100 p-2 text-ops-subtext"><Bot className="h-4 w-4" /></div>
+          <div className="rounded-lg bg-slate-100 p-2 text-ops-subtext"><Robot size={16} weight="regular" aria-hidden /></div>
           <div>
             <h2 className="text-sm font-semibold text-ops-text">AI extraction confidence</h2>
             <p className="mt-1 text-sm text-ops-subtext">{incident.aiConfidence}% — structured from raw notes via Bedrock.</p>
@@ -260,7 +260,7 @@ export const IncidentDetailView: React.FC<IncidentDetailViewProps> = ({
             className="flex w-full items-center justify-between text-sm font-medium text-ops-text min-h-[44px]"
           >
             Raw logs
-            {showRaw ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {showRaw ? <CaretUp size={16} weight="regular" aria-hidden /> : <CaretDown size={16} weight="regular" aria-hidden />}
           </button>
           {showRaw && (
             <pre className="mt-3 max-h-64 overflow-auto rounded-lg border border-ops-border bg-slate-50 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-ops-subtext">

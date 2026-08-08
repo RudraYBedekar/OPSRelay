@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { Warning } from '@phosphor-icons/react';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -30,7 +30,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       <div className="relative ops-card max-w-md w-full p-6 shadow-xl">
         <div className="flex items-start gap-3">
           <div className={`p-2 rounded-lg ${destructive ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-ops-subtext'}`}>
-            <AlertTriangle className="h-5 w-5" />
+            <Warning size={20} weight="regular" aria-hidden />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-semibold text-ops-text">{title}</h2>

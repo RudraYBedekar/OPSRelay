@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Copy } from 'lucide-react';
+import { Warning, Copy } from '@phosphor-icons/react';
 import type { DuplicateCandidate } from '../../types/alertFatigue';
 
 interface DuplicateCandidateBannerProps {
@@ -23,7 +23,7 @@ export const DuplicateCandidateBanner: React.FC<DuplicateCandidateBannerProps> =
     <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
       <div className="flex items-start gap-3">
         <div className="rounded-lg bg-amber-100 p-2 text-amber-700 shrink-0">
-          <Copy className="h-5 w-5" aria-hidden />
+          <Copy size={20} weight="regular" aria-hidden />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-amber-900">Possible duplicate alert</h3>
@@ -49,7 +49,7 @@ export const DuplicateCandidateBanner: React.FC<DuplicateCandidateBannerProps> =
             disabled={busy}
             className="ops-btn-primary text-sm min-h-[36px]"
           >
-            <AlertTriangle className="h-4 w-4" aria-hidden />
+            <Warning size={16} weight="regular" aria-hidden />
             Keep as distinct incident
           </button>
         )}

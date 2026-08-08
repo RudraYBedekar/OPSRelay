@@ -2,15 +2,15 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
   Clock,
-  ImagePlus,
-  Loader2,
-  MessageCircle,
-  Send,
-  Trash2,
+  Image,
+  CircleNotch,
+  ChatsCircle,
+  PaperPlaneTilt,
+  Trash,
   UserMinus,
   UserPlus,
   Users,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { apiService } from '../../services/apiService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../common/Toast';
@@ -287,7 +287,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
 
       <div className="flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-white">
-          <MessageCircle className="h-4 w-4" aria-hidden />
+          <ChatsCircle size={16} weight="regular" aria-hidden />
         </div>
         <div>
           <h2 className="text-base font-bold text-ops-text">Team chat</h2>
@@ -337,7 +337,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
           <div className="flex-1 overflow-y-auto p-2">
             {loading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-brand" aria-hidden />
+                <CircleNotch size={24} weight="regular" className="animate-spin text-brand" aria-hidden />
               </div>
             ) : chats.length === 0 ? (
               <p className="p-3 text-sm text-ops-muted">No conversations yet.</p>
@@ -352,7 +352,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         setShowGuestForm(false);
                       }}
                       className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${
-                        selectedChatId === chat.id ? 'bg-red-50 border border-red-100' : 'hover:bg-slate-50'
+                        selectedChatId === chat.id ? 'bg-brand-light border border-brand-muted' : 'hover:bg-slate-50'
                       }`}
                     >
                       <p className="text-sm font-medium text-ops-text truncate">
@@ -364,7 +364,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       )}
                       {chat.activeGuest && (
                         <span className="mt-1 inline-flex items-center gap-1 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">
-                          <Users className="h-3 w-3" aria-hidden />
+                          <Users size={12} weight="regular" aria-hidden />
                           Guest active
                         </span>
                       )}
@@ -379,7 +379,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
         <div className="ops-card flex flex-col overflow-hidden">
           {!activeChat ? (
             <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-ops-muted">
-              <MessageCircle className="h-10 w-10 mb-3 opacity-40" aria-hidden />
+              <ChatsCircle size={40} weight="regular" className="mb-3 opacity-40" aria-hidden />
               <p className="text-sm">Select a chat or start one with a member ID</p>
               {userName && (
                 <p className="mt-2 text-xs">Signed in as {userName} ({memberId})</p>
@@ -406,7 +406,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         onClick={() => setShowGuestForm((v) => !v)}
                         className="ops-btn-secondary text-xs min-h-[32px]"
                       >
-                        <UserPlus className="h-3.5 w-3.5" aria-hidden />
+                        <UserPlus size={14} weight="regular" aria-hidden />
                         Add guest
                       </button>
                       <button
@@ -416,7 +416,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 min-h-[32px]"
                         title="Delete entire chat"
                       >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        <Trash size={14} weight="regular" aria-hidden />
                         Delete chat
                       </button>
                     </div>
@@ -425,7 +425,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
 
                 {activeChat.activeGuest && (
                   <div className="mt-2 flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2">
-                    <Users className="h-4 w-4 text-violet-600 shrink-0" aria-hidden />
+                    <Users size={16} weight="regular" className="text-violet-600 shrink-0" aria-hidden />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-violet-900">
                         Guest: {activeChat.activeGuest.guestName} ({activeChat.activeGuest.guestMemberId})
@@ -436,7 +436,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       </p>
                     </div>
                     <div className="flex items-center gap-1 text-xs font-mono font-semibold text-violet-800">
-                      <Clock className="h-3.5 w-3.5" aria-hidden />
+                      <Clock size={14} weight="regular" aria-hidden />
                       {formatGuestCountdown(guestRemainingMs)}
                     </div>
                     {!isGuestViewer && (
@@ -447,7 +447,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                         className="rounded-lg border border-violet-300 bg-white px-2 py-1 text-[11px] font-medium text-violet-800 hover:bg-violet-100"
                         title="Remove guest now"
                       >
-                        <UserMinus className="h-3.5 w-3.5" aria-hidden />
+                        <UserMinus size={14} weight="regular" aria-hidden />
                       </button>
                     )}
                   </div>
@@ -471,7 +471,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                           onClick={() => setGuestDuration(value)}
                           className={`rounded-lg border py-1.5 text-[11px] font-medium min-h-[36px] ${
                             guestDuration === value
-                              ? 'border-brand bg-red-50 text-brand'
+                              ? 'border-brand bg-brand-light text-brand'
                               : 'border-ops-border bg-white text-ops-subtext'
                           }`}
                         >
@@ -532,7 +532,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                           <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
                         )}
                         <div className={`mt-1 flex items-center gap-2 ${isMine ? 'justify-between' : 'justify-between'}`}>
-                          <p className={`text-[10px] ${isMine ? 'text-red-100' : 'text-ops-muted'}`}>
+                          <p className={`text-[10px] ${isMine ? 'text-white/70' : 'text-ops-muted'}`}>
                             {formatDate(msg.createdAt)}
                           </p>
                           {(isMine || !isGuestViewer) && (
@@ -541,12 +541,12 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                               onClick={() => void deleteMessage(msg.id)}
                               disabled={sending}
                               className={`rounded p-0.5 opacity-70 hover:opacity-100 ${
-                                isMine ? 'text-red-100 hover:bg-red-700/40' : 'text-ops-muted hover:bg-slate-200'
+                                isMine ? 'text-white/70 hover:bg-brand/80' : 'text-ops-muted hover:bg-slate-200'
                               }`}
                               aria-label="Delete message"
                               title="Delete message"
                             >
-                              <Trash2 className="h-3 w-3" aria-hidden />
+                              <Trash size={12} weight="regular" aria-hidden />
                             </button>
                           )}
                         </div>
@@ -574,7 +574,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                     aria-label="Upload image"
                     title="Upload image"
                   >
-                    <ImagePlus className="h-4 w-4" aria-hidden />
+                    <Image size={16} weight="regular" aria-hidden />
                   </button>
                   <button
                     type="button"
@@ -584,7 +584,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                     aria-label="Live camera"
                     title="Live camera"
                   >
-                    <Camera className="h-4 w-4" aria-hidden />
+                    <Camera size={16} weight="regular" aria-hidden />
                   </button>
                   <input
                     type="text"
@@ -608,9 +608,9 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                     aria-label="Send message"
                   >
                     {sending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      <CircleNotch size={16} weight="regular" className="animate-spin" aria-hidden />
                     ) : (
-                      <Send className="h-4 w-4" aria-hidden />
+                      <PaperPlaneTilt size={16} weight="regular" aria-hidden />
                     )}
                   </button>
                 </div>

@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react';
+import { CheckCircle, Warning, Info, X } from '@phosphor-icons/react';
 
 type ToastType = 'success' | 'error' | 'info';
 
@@ -15,7 +15,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const ICONS = { success: CheckCircle2, error: AlertTriangle, info: Info };
+const ICONS = { success: CheckCircle, error: Warning, info: Info };
 const STYLES = {
   success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
   error: 'border-red-200 bg-red-50 text-red-900',
@@ -45,10 +45,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               role="status"
               className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg ${STYLES[type]}`}
             >
-              <Icon className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+              <Icon size={16} weight="regular" className="shrink-0 mt-0.5" aria-hidden />
               <p className="flex-1">{message}</p>
               <button type="button" onClick={() => dismiss(id)} className="shrink-0 opacity-60 hover:opacity-100" aria-label="Dismiss">
-                <X className="h-4 w-4" />
+                <X size={16} weight="regular" aria-hidden />
               </button>
             </div>
           );

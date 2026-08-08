@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Database, User, Wrench } from 'lucide-react';
+import { Brain, Database, User, Wrench } from '@phosphor-icons/react';
 import type { CommanderDecision } from '../../types/commander';
 
 interface ConfidenceBreakdownProps {
@@ -46,7 +46,7 @@ export const ConfidenceBreakdown: React.FC<ConfidenceBreakdownProps> = ({ decisi
       <div className="grid gap-2 sm:grid-cols-2">
         {similar.length > 0 && (
           <div className="flex gap-2 rounded-md border border-ops-border bg-white p-2.5">
-            <Database className="h-4 w-4 shrink-0 text-brand mt-0.5" aria-hidden />
+            <Database size={16} weight="regular" className="shrink-0 text-brand mt-0.5" aria-hidden />
             <div>
               <p className="text-xs font-medium text-ops-text">Vector memory matches</p>
               <ul className="mt-1 space-y-0.5">
@@ -62,7 +62,7 @@ export const ConfidenceBreakdown: React.FC<ConfidenceBreakdownProps> = ({ decisi
 
         {primaryExpert && (
           <div className="flex gap-2 rounded-md border border-ops-border bg-white p-2.5">
-            <User className="h-4 w-4 shrink-0 text-brand mt-0.5" aria-hidden />
+            <User size={16} weight="regular" className="shrink-0 text-brand mt-0.5" aria-hidden />
             <div>
               <p className="text-xs font-medium text-ops-text">Expert ranking</p>
               <p className="text-xs text-ops-subtext mt-1">
@@ -81,7 +81,7 @@ export const ConfidenceBreakdown: React.FC<ConfidenceBreakdownProps> = ({ decisi
 
         {technologies.length > 0 && (
           <div className="flex gap-2 rounded-md border border-ops-border bg-white p-2.5">
-            <Wrench className="h-4 w-4 shrink-0 text-brand mt-0.5" aria-hidden />
+            <Wrench size={16} weight="regular" className="shrink-0 text-brand mt-0.5" aria-hidden />
             <div>
               <p className="text-xs font-medium text-ops-text">Technologies detected</p>
               <p className="text-xs text-ops-subtext mt-1">{technologies.join(', ')}</p>
@@ -90,7 +90,7 @@ export const ConfidenceBreakdown: React.FC<ConfidenceBreakdownProps> = ({ decisi
         )}
 
         <div className="flex gap-2 rounded-md border border-ops-border bg-white p-2.5">
-          <Brain className="h-4 w-4 shrink-0 text-brand mt-0.5" aria-hidden />
+          <Brain size={16} weight="regular" className="shrink-0 text-brand mt-0.5" aria-hidden />
           <div>
             <p className="text-xs font-medium text-ops-text">Decision type</p>
             <p className="text-xs text-ops-subtext mt-1 capitalize">{decision.decisionType.replace(/_/g, ' ')}</p>
