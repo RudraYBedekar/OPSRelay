@@ -118,8 +118,11 @@ export const App: React.FC = () => {
       setIncidents(incs);
       setTasks(t);
       setLastRefreshedAt(new Date());
+      setError(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      const message = err instanceof Error ? err.message : 'Failed to load data';
+      if (message === 'Authentication required' && requiresAuth && !user) return;
+      setError(message);
     } finally {
       if (silent) setIsRefreshing(false);
       else setIsLoading(false);
@@ -149,15 +152,20 @@ export const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadDashboardData(); }, []);
+  useEffect(() => {
+    if (authLoading) return;
+    if (requiresAuth && !user) return;
+    void loadDashboardData();
+  }, [authLoading, requiresAuth, user]);
 
   useEffect(() => {
     if (activeTab !== 'dashboard') return;
+    if (authLoading || (requiresAuth && !user)) return;
     const id = window.setInterval(() => {
       void loadDashboardData({ silent: true });
     }, 20_000);
     return () => window.clearInterval(id);
-  }, [activeTab]);
+  }, [activeTab, authLoading, requiresAuth, user]);
 
   const handleAcknowledgeHandoff = async () => {
     try {
