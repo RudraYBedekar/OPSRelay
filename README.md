@@ -4,7 +4,10 @@ OpsRelay is an **AI incident-response and shift-handoff dashboard** for operatio
 
 Built with **React**, **TypeScript**, **Tailwind CSS**, **CockroachDB**, and **AWS Bedrock**.
 
-> **AI setup guide:** See [docs/BEDROCK_VECTOR_SETUP.md](docs/BEDROCK_VECTOR_SETUP.md) for full Bedrock + vector indexing setup from scratch.
+> **AI setup guide:** See [docs/BEDROCK_VECTOR_SETUP.md](docs/BEDROCK_VECTOR_SETUP.md) for full Bedrock + vector indexing setup from scratch.  
+> **Architecture:** See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for CockroachDB, AWS Bedrock, and agent interaction diagrams.
+
+![OpsRelay architecture](docs/images/opsrelay-architecture.png)
 
 ---
 
