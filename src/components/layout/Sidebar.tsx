@@ -57,53 +57,94 @@ export const Sidebar: React.FC<SidebarProps> = ({
     )}
 
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-ops-border bg-ops-sidebar transition-all duration-150 md:static md:translate-x-0 md:pointer-events-auto ${
-        collapsed ? 'w-[3.75rem]' : 'w-56'
-      } ${isOpenMobile ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'}`}
+      className={[
+        'flex h-dvh shrink-0 flex-col border-r border-ops-border bg-ops-sidebar transition-[width,transform] duration-150',
+        collapsed ? 'w-[3.75rem]' : 'w-56',
+        'md:sticky md:top-0 md:z-40 md:translate-x-0 md:pointer-events-auto',
+        'max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50',
+        isOpenMobile
+          ? 'max-md:translate-x-0 max-md:pointer-events-auto'
+          : 'max-md:-translate-x-full max-md:pointer-events-none',
+      ].join(' ')}
     >
-      <div className={`flex h-14 w-full shrink-0 items-center border-b border-ops-border ${collapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
-        {!collapsed && (
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand text-white">
-              <SquaresFour size={18} weight="bold" aria-hidden />
+      <div
+        className={`flex h-14 w-full shrink-0 items-center border-b border-ops-border ${
+          collapsed ? 'justify-center gap-1 px-2' : 'gap-2 px-3'
+        }`}
+      >
+        {!collapsed ? (
+          <>
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand text-white">
+                <SquaresFour size={18} weight="bold" aria-hidden />
+              </div>
+              <div className="min-w-0 md:block max-md:hidden">
+                <p className="text-sm font-semibold leading-tight text-ops-text">OpsRelay</p>
+                <p className="truncate text-[11px] text-ops-muted">Incident workspace</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ops-text leading-tight">OpsRelay</p>
-              <p className="text-[11px] text-ops-muted truncate">Incident workspace</p>
-            </div>
-          </div>
+            {onToggleCollapse && (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                className="ops-icon-btn hidden shrink-0 md:inline-flex"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <SidebarSimple size={ICON_SIZE.button} aria-hidden />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsOpenMobile(false)}
+              className="ops-icon-btn shrink-0 md:hidden"
+              aria-label="Close menu"
+            >
+              <X size={ICON_SIZE.button} aria-hidden />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-brand text-white hover:opacity-90"
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <SidebarSimple size={18} weight="bold" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOpenMobile(false)}
+              className="ops-icon-btn shrink-0 md:hidden"
+              aria-label="Close menu"
+            >
+              <X size={ICON_SIZE.button} aria-hidden />
+            </button>
+          </>
         )}
-        {collapsed && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand text-white">
-            <SquaresFour size={18} weight="bold" aria-hidden />
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => setIsOpenMobile(false)}
-          className="ops-icon-btn shrink-0 md:hidden relative z-10"
-          aria-label="Close menu"
-        >
-          <X size={ICON_SIZE.button} aria-hidden />
-        </button>
       </div>
 
       {activeSevCount > 0 && !collapsed && (
-        <div className="mx-3 mt-3 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-2">
-          <Warning size={14} weight="fill" className="text-red-600 shrink-0" aria-hidden />
+        <div className="mx-3 mt-3 flex shrink-0 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-2">
+          <Warning size={14} weight="fill" className="shrink-0 text-red-600" aria-hidden />
           <p className="text-xs font-medium text-red-800">{activeSevCount} critical active</p>
         </div>
       )}
       {activeSevCount > 0 && collapsed && (
         <div
-          className="mx-auto mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-[10px] font-bold text-red-700"
+          className="mx-auto mt-3 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-100 text-[10px] font-bold text-red-700"
           title={`${activeSevCount} critical incidents`}
         >
           {activeSevCount}
         </div>
       )}
 
-      <nav className="flex-1 space-y-0.5 px-2 py-3" aria-label="Main navigation">
+      <nav
+        className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-3"
+        aria-label="Main navigation"
+      >
         {NAV.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id;
           const badge =
@@ -133,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!collapsed && (
                 <>
                   <span className={`flex-1 text-sm ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
-                      {badge != null && badge > 0 && (
+                  {badge != null && badge > 0 && (
                     <span className={`flex h-5 min-w-[1.25rem] items-center justify-center rounded-md px-1 text-[10px] font-semibold ${
                       id === 'chat' ? 'bg-brand text-white' : 'bg-amber-100 text-amber-900'
                     }`}>
@@ -151,20 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
-
-      {onToggleCollapse && (
-        <div className="hidden border-t border-ops-border p-2 md:block">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex w-full items-center justify-center gap-2 rounded-md py-2 text-xs text-ops-muted hover:bg-ops-cardHover hover:text-ops-text min-h-[40px]"
-          >
-            <SidebarSimple size={16} aria-hidden />
-            {!collapsed && <span>Collapse</span>}
-          </button>
-        </div>
-      )}
     </aside>
   </>
 );

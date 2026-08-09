@@ -48,7 +48,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onOpenAccess,
   children,
 }) => (
-  <div className="flex min-h-screen bg-ops-bg">
+  <div className="flex h-dvh w-full overflow-hidden bg-ops-bg">
     <Sidebar
       activeTab={activeTab}
       onTabChange={onTabChange}
@@ -60,10 +60,12 @@ export const AppShell: React.FC<AppShellProps> = ({
       collapsed={sidebarCollapsed}
       onToggleCollapse={onToggleSidebar}
     />
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
       <TopHeader
         onToggleMobileSidebar={() => setIsOpenMobile(!isOpenMobile)}
         isMobileSidebarOpen={isOpenMobile}
+        onToggleDesktopSidebar={onToggleSidebar}
+        sidebarCollapsed={sidebarCollapsed}
         onOpenIntake={onOpenIntake}
         onSearchQuery={onSearchQuery}
         dbConnected={dbConnected}
