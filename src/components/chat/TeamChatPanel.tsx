@@ -232,7 +232,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
           ? { ...prev, messages: prev.messages.filter((m) => m.id !== messageId) }
           : prev,
       );
-      toast('Message deleted', 'success');
+      toast('Message hidden', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Delete failed', 'error');
     } finally {
@@ -244,7 +244,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
     if (!selectedChatId || !activeChat) return;
     const other = activeChat.participants.find((p) => p.memberId !== memberId);
     const otherName = other?.name ?? 'this person';
-    if (!window.confirm(`Delete the entire chat with ${otherName}? All messages will be permanently removed.`)) {
+    if (!window.confirm(`Hide the chat with ${otherName}? Messages stay saved in the database.`)) {
       return;
     }
     setSending(true);
@@ -254,7 +254,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
       setSelectedChatId(null);
       setShowGuestForm(false);
       await loadChats();
-      toast('Chat deleted', 'success');
+      toast('Chat hidden from your list', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Delete failed', 'error');
     } finally {

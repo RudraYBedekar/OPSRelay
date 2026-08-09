@@ -34,7 +34,7 @@ function asStoredIncident(data: Record<string, unknown>): StoredIncident {
 incidentsRouter.get('/', async (req, res, next) => {
   try {
     const rows = await query<{ data: Record<string, unknown>; updated_at: string }>(
-      'SELECT data, updated_at FROM incidents ORDER BY updated_at DESC',
+      'SELECT data, updated_at FROM incidents WHERE deleted_at IS NULL ORDER BY updated_at DESC',
     );
     const all = rows.map((r) => ({
       ...asStoredIncident(r.data),
@@ -49,7 +49,7 @@ incidentsRouter.get('/', async (req, res, next) => {
 incidentsRouter.get('/:id', async (req, res, next) => {
   try {
     const row = await queryOne<{ data: Record<string, unknown> }>(
-      'SELECT data FROM incidents WHERE id = $1',
+      'SELECT data FROM incidents WHERE id = $1 AND deleted_at IS NULL',
       [req.params.id],
     );
     if (!row) {
@@ -308,6 +308,42 @@ incidentsRouter.post('/:id/share', async (req, res, next) => {
       res.status(400).json({ error: err.message });
       return;
     }
+    next(err);
+  }
+});
+
+/** Soft-delete — hides from dashboard; row and evidence remain in the database. */
+incidentsRouter.delete('/:id', async (req, res, next) => {
+  try {
+    if (isAuthEnabled() && !req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const row = await queryOne<{ data: Record<string, unknown> }>(
+      'SELECT data FROM incidents WHERE id = $1 AND deleted_at IS NULL',
+      [req.params.id],
+    );
+    if (!row) {
+      res.status(404).json({ error: `Incident ${req.params.id} not found` });
+      return;
+    }
+
+    const incident = asStoredIncident(row.data);
+    if (isAuthEnabled() && req.user && !canEditIncident(incident, req.user)) {
+      res.status(404).json({ error: `Incident ${req.params.id} not found` });
+      return;
+    }
+
+    await query(
+      `UPDATE incidents
+       SET deleted_at = now(), deleted_by_member_id = $2, updated_at = now()
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [req.params.id, req.user?.memberId ?? null],
+    );
+
+    res.json({ deleted: true, id: req.params.id, retained: true });
+  } catch (err) {
     next(err);
   }
 });

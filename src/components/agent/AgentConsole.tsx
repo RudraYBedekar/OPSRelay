@@ -188,7 +188,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
       await apiService.clearMemoryChats();
       setChatHistory([]);
       startNewChat();
-      toast('Chat history cleared', 'success');
+      toast('Chat history hidden — data retained in database', 'success');
     } catch {
       toast('Failed to clear history', 'error');
     }

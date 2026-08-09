@@ -173,8 +173,8 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     status: 'done',
   });
 
-  const incidentRows = await query<{ data: IncidentRecord & { severity?: string; status?: string; ownerMemberId?: string; sharedWithMemberIds?: string[] } }>(
-    'SELECT data FROM incidents ORDER BY updated_at DESC',
+  const incidentRows = await query<{ data: IncidentRecord & { severity?: string; status?: string; ownerMemberId?: string; sharedWithMemberIds?: string[]; deleted_at?: string } }>(
+    'SELECT data FROM incidents WHERE deleted_at IS NULL ORDER BY updated_at DESC',
   );
   const allIncidents = incidentRows.map((r) => r.data);
   const incidents = isAuthEnabled() && viewer

@@ -13,7 +13,7 @@ export const tasksRouter = Router();
 tasksRouter.get('/', async (req, res, next) => {
   try {
     const rows = await query<{ id: string; data: IncidentWithTasks }>(
-      'SELECT id, data FROM incidents ORDER BY updated_at DESC',
+      'SELECT id, data FROM incidents WHERE deleted_at IS NULL ORDER BY updated_at DESC',
     );
     const visible = await filterIncidentsForUser(
       rows.map((row) => ({ ...row.data, id: row.data.id ?? row.id })),

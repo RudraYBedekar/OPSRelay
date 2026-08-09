@@ -328,7 +328,7 @@ export async function getInvestigatorAccessScope(viewer: AuthUser): Promise<Inve
   const grantedSet = new Set(grantedOwnerIds);
 
   const rows = await secureQuery<{ id: string; data: Record<string, unknown> }>(
-    `SELECT id, data FROM incidents ORDER BY updated_at DESC LIMIT ${MAX_SCOPE_INCIDENTS}`,
+    `SELECT id, data FROM incidents WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ${MAX_SCOPE_INCIDENTS}`,
   );
 
   const allowedIncidentIds: string[] = [];

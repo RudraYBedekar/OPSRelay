@@ -12,7 +12,7 @@ export const memoryRouter = Router();
 memoryRouter.get('/', async (req, res, next) => {
   try {
     const rows = await query<{ data: { ownerMemberId?: string } }>(
-      'SELECT data FROM memory_chats ORDER BY created_at ASC',
+      'SELECT data FROM memory_chats WHERE hidden_at IS NULL ORDER BY created_at ASC',
     );
     const memberId = req.user?.memberId;
     const chats = rows
@@ -108,18 +108,17 @@ memoryRouter.post('/query', async (req, res, next) => {
 memoryRouter.delete('/', async (req, res, next) => {
   try {
     if (isAuthEnabled() && req.user) {
-      const rows = await query<{ id: string; data: { ownerMemberId?: string } }>(
-        'SELECT id, data FROM memory_chats',
+      await query(
+        `UPDATE memory_chats
+         SET hidden_at = now(), hidden_by_member_id = $1
+         WHERE hidden_at IS NULL
+           AND data->>'ownerMemberId' = $1`,
+        [req.user.memberId],
       );
-      const toDelete = rows
-        .filter((row) => chatBelongsToUser(row.data, req.user!.memberId))
-        .map((row) => row.id);
-
-      for (const id of toDelete) {
-        await query('DELETE FROM memory_chats WHERE id = $1', [id]);
-      }
     } else {
-      await query('DELETE FROM memory_chats');
+      await query(
+        `UPDATE memory_chats SET hidden_at = now() WHERE hidden_at IS NULL`,
+      );
     }
     res.status(204).send();
   } catch (err) {

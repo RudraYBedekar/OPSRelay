@@ -141,13 +141,16 @@ async function countUnreadForChat(chatId: string, memberId: string): Promise<num
     [chatId, memberId],
   );
 
+  const activeFilter = 'AND deleted_at IS NULL';
+
   if (!cursor) {
     const row = await queryOne<{ n: number }>(
       `SELECT count(*)::int AS n
        FROM team_chat_messages
        WHERE chat_id = $1
          AND sender_member_id != $2
-         AND message_type != 'system'`,
+         AND message_type != 'system'
+         ${activeFilter}`,
       [chatId, memberId],
     );
     return row?.n ?? 0;
@@ -159,7 +162,8 @@ async function countUnreadForChat(chatId: string, memberId: string): Promise<num
      WHERE m.chat_id = $1
        AND m.sender_member_id != $2
        AND m.message_type != 'system'
-       AND m.created_at > $3`,
+       AND m.created_at > $3
+       ${activeFilter}`,
     [chatId, memberId, cursor.last_read_at],
   );
   return row?.n ?? 0;
@@ -179,12 +183,17 @@ export async function getTotalUnreadCount(memberId: string): Promise<number> {
   await expireStaleGuests();
   const rows = await query<{ id: string }>(
     `SELECT c.id FROM team_chats c
-     WHERE c.member_a_id = $1 OR c.member_b_id = $1
+     WHERE (c.member_a_id = $1 OR c.member_b_id = $1
         OR EXISTS (
           SELECT 1 FROM team_chat_guests g
           WHERE g.chat_id = c.id AND g.guest_member_id = $1
             AND g.status = 'active' AND g.expires_at > now()
-        )`,
+        ))
+       AND c.deleted_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM team_chat_user_hides h
+         WHERE h.chat_id = c.id AND h.member_id = $1
+       )`,
     [memberId],
   );
 
@@ -254,12 +263,17 @@ export async function listChatsForUser(user: AuthUser): Promise<TeamChatSummary[
     updated_at: string;
   }>(
     `SELECT c.* FROM team_chats c
-     WHERE c.member_a_id = $1 OR c.member_b_id = $1
+     WHERE (c.member_a_id = $1 OR c.member_b_id = $1
         OR EXISTS (
           SELECT 1 FROM team_chat_guests g
           WHERE g.chat_id = c.id AND g.guest_member_id = $1
             AND g.status = 'active' AND g.expires_at > now()
-        )
+        ))
+       AND c.deleted_at IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM team_chat_user_hides h
+         WHERE h.chat_id = c.id AND h.member_id = $1
+       )
      ORDER BY c.updated_at DESC`,
     [user.memberId],
   );
@@ -280,7 +294,7 @@ export async function listChatsForUser(user: AuthUser): Promise<TeamChatSummary[
 
     const lastMsg = await queryOne<{ text: string; created_at: string }>(
       `SELECT text, created_at FROM team_chat_messages
-       WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 1`,
+       WHERE chat_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`,
       [row.id],
     );
 
@@ -349,6 +363,11 @@ export async function getOrCreateChat(
     }).catch(() => undefined);
   }
 
+  await query(
+    'DELETE FROM team_chat_user_hides WHERE chat_id = $1 AND member_id = $2',
+    [chatId, user.memberId],
+  );
+
   return getChatDetail(chatId, user.memberId);
 }
 
@@ -367,6 +386,12 @@ export async function getChatDetail(chatId: string, memberId: string): Promise<T
 
   if (!chat) throw new Error('Chat not found');
 
+  const hidden = await queryOne<{ chat_id: string }>(
+    'SELECT chat_id FROM team_chat_user_hides WHERE chat_id = $1 AND member_id = $2',
+    [chatId, memberId],
+  );
+  if (hidden) throw new Error('Chat not found');
+
   const allowed = await canAccessChat(chat, memberId, chatId);
   if (!allowed) throw new Error('Chat not found');
 
@@ -380,7 +405,7 @@ export async function getChatDetail(chatId: string, memberId: string): Promise<T
     image_data: string | null;
     created_at: string;
   }>(
-    'SELECT id, chat_id, sender_member_id, sender_name, text, message_type, image_data, created_at FROM team_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC',
+    'SELECT id, chat_id, sender_member_id, sender_name, text, message_type, image_data, created_at FROM team_chat_messages WHERE chat_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC',
     [chatId],
   );
 
@@ -424,6 +449,11 @@ export async function sendChatMessage(
 
   const allowed = await canAccessChat(chat, user.memberId, chatId);
   if (!allowed) throw new Error('You do not have access to this chat');
+
+  await query(
+    'DELETE FROM team_chat_user_hides WHERE chat_id = $1 AND member_id = $2',
+    [chatId, user.memberId],
+  );
 
   if (hasImage) {
     validateImageData(imageData!);
@@ -619,8 +649,11 @@ export async function deleteChatMessage(
     id: string;
     sender_member_id: string;
     message_type: string;
+    text: string;
+    image_data: string | null;
+    created_at: string;
   }>(
-    'SELECT id, sender_member_id, message_type FROM team_chat_messages WHERE id = $1 AND chat_id = $2',
+    'SELECT id, sender_member_id, message_type, text, image_data, created_at FROM team_chat_messages WHERE id = $1 AND chat_id = $2 AND deleted_at IS NULL',
     [messageId, chatId],
   );
   if (!message) throw new Error('Message not found');
@@ -634,9 +667,6 @@ export async function deleteChatMessage(
     throw new Error('You can only delete your own messages');
   }
 
-  await query('DELETE FROM team_chat_messages WHERE id = $1 AND chat_id = $2', [messageId, chatId]);
-  await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
-
   await archiveTeamChatEvent({
     chatId,
     eventType: 'message_deleted',
@@ -646,8 +676,20 @@ export async function deleteChatMessage(
       messageId,
       deletedBy: user.memberId,
       originalSender: message.sender_member_id,
+      text: message.text,
+      messageType: message.message_type,
+      hasImage: Boolean(message.image_data),
+      createdAt: message.created_at,
     },
   }).catch(() => undefined);
+
+  await query(
+    `UPDATE team_chat_messages
+     SET deleted_at = now(), deleted_by_member_id = $3
+     WHERE id = $1 AND chat_id = $2 AND deleted_at IS NULL`,
+    [messageId, chatId, user.memberId],
+  );
+  await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
 
   return { deleted: true, messageId };
 }
@@ -668,6 +710,18 @@ export async function deleteChat(
     throw new Error('Only chat participants can delete this conversation');
   }
 
+  const messages = await query<{
+    id: string;
+    sender_member_id: string;
+    text: string;
+    message_type: string;
+    created_at: string;
+  }>(
+    `SELECT id, sender_member_id, text, message_type, created_at
+     FROM team_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC`,
+    [chatId],
+  );
+
   await archiveTeamChatEvent({
     chatId,
     eventType: 'chat_deleted',
@@ -677,12 +731,23 @@ export async function deleteChat(
       deletedBy: user.memberId,
       memberAId: chat.member_a_id,
       memberBId: chat.member_b_id,
+      messageCount: messages.length,
+      messages: messages.map((m) => ({
+        id: m.id,
+        senderMemberId: m.sender_member_id,
+        text: m.text,
+        messageType: m.message_type,
+        createdAt: m.created_at,
+      })),
     },
   }).catch(() => undefined);
 
-  await query('DELETE FROM team_chat_messages WHERE chat_id = $1', [chatId]);
-  await query('DELETE FROM team_chat_guests WHERE chat_id = $1', [chatId]);
-  await query('DELETE FROM team_chats WHERE id = $1', [chatId]);
+  await query(
+    `INSERT INTO team_chat_user_hides (chat_id, member_id, hidden_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (chat_id, member_id) DO UPDATE SET hidden_at = now()`,
+    [chatId, user.memberId],
+  );
 
   return { deleted: true, chatId };
 }
