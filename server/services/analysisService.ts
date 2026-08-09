@@ -240,10 +240,15 @@ export async function approveAnalysisRun(
     );
     if (!incRow[0]) throw new Error('Incident not found');
 
+    const approvedTitle =
+      typeof validated.title === 'string' && validated.title.trim().length >= 3
+        ? validated.title.trim()
+        : `${validated.service} — ${validated.component}`;
+
     const updated = normalizeIncidentForSave({
       ...incRow[0].data,
       id: incidentId,
-      title: `${validated.service} — ${validated.component}`,
+      title: approvedTitle,
       summary: validated.summary,
       severity: validated.severity,
       service: validated.service,
@@ -255,9 +260,9 @@ export async function approveAnalysisRun(
       fixesApplied: validated.suggestedFixes,
       tasks: validated.tasks.map((t, i) => ({
         ...t,
-        id: `tsk-${i}`,
+        id: `tsk-${incidentId}-${runId.slice(0, 8)}-${i}`,
         incidentId,
-        incidentTitle: `${validated.service} — ${validated.component}`,
+        incidentTitle: approvedTitle,
       })),
     } as never);
 
@@ -270,7 +275,7 @@ export async function approveAnalysisRun(
     await queryWithClient(
       client,
       `UPDATE agent_runs SET status = 'approved', approved_at = now(), output_json = $2::jsonb WHERE id = $1`,
-      [runId, JSON.stringify(validated)],
+      [runId, JSON.stringify({ ...validated, title: approvedTitle })],
     );
 
     await enqueuePostApprovalJobs(incidentId, client);
@@ -318,7 +323,8 @@ async function syncPostApprovalSideEffects(incidentId: string): Promise<void> {
     decisions: incident.decisions,
     tasks: incident.tasks,
     sourceUpdatedAt: row.updated_at,
-    ownerScope: incident.ownerMemberId?.slice(0, 8),
+    ownerMemberId: incident.ownerMemberId,
+    ownerScope: incident.ownerMemberId,
   });
 }
 

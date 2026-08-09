@@ -14,6 +14,8 @@ import {
 import { isAuthEnabled } from '../config/auth.js';
 import { createIntakeIncident } from '../services/analysisService.js';
 import { markAlertResolvedForIncident } from '../services/alertFatigueService.js';
+import { parseTaskStatus } from '../schemas/taskStatus.js';
+import { updateIncidentTaskStatus } from '../utils/updateIncidentTaskStatus.js';
 
 export const incidentsRouter = Router();
 
@@ -235,6 +237,25 @@ incidentsRouter.patch('/:id/status', async (req, res, next) => {
     );
     res.json(incident);
   } catch (err) {
+    next(err);
+  }
+});
+
+incidentsRouter.patch('/:id/tasks/:taskId/status', async (req, res, next) => {
+  try {
+    const status = parseTaskStatus(req.body);
+    const task = await updateIncidentTaskStatus(
+      req.params.id,
+      req.params.taskId,
+      status,
+      req.user,
+    );
+    res.json(task);
+  } catch (err) {
+    if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
+      res.status(404).json({ error: err instanceof Error ? err.message : 'Task not found' });
+      return;
+    }
     next(err);
   }
 });

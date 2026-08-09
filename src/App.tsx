@@ -31,6 +31,7 @@ import type {
 import { apiService } from './services/apiService';
 import type { AnalysisRun } from './types/alertFatigue';
 import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents, buildLiveHandoffSummaries } from './utils/dashboardMetrics';
+import { countOpenTasks } from './utils/taskMetrics';
 import { useTeamChatUnread } from './hooks/useTeamChatUnread';
 
 const PAGE: Record<NavTab, { title: string; description: string }> = {
@@ -339,9 +340,9 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleUpdateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
+  const handleUpdateTaskStatus = async (incidentId: string, taskId: string, newStatus: TaskStatus) => {
     try {
-      await apiService.updateTaskStatus(taskId, newStatus);
+      await apiService.updateTaskStatus(incidentId, taskId, newStatus);
       setTasks(await apiService.getTasks());
       toast('Task status updated', 'success');
     } catch (err: unknown) {
@@ -350,9 +351,32 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleInspectIncidentById = (id: string) => {
-    const inc = incidents.find((i) => i.id === id);
-    if (inc) setSelectedIncident(inc);
+  const handleInspectIncidentById = async (id: string) => {
+    const local = incidents.find((i) => i.id === id);
+    if (local) {
+      setSelectedIncident(local);
+      setActiveTab('dashboard');
+      return;
+    }
+    try {
+      const fetched = await apiService.getIncidentById(id);
+      if (fetched) {
+        setSelectedIncident(fetched);
+        setActiveTab('dashboard');
+      } else {
+        toast('Source unavailable or you do not have access', 'error');
+      }
+    } catch {
+      toast('Source unavailable or you do not have access', 'error');
+    }
+  };
+
+  const handleGlobalSearch = (query: string) => {
+    setGlobalSearchQuery(query);
+    if (query.trim() && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+      setSelectedIncident(null);
+    }
   };
 
   const goTab = (tab: NavTab) => {
@@ -410,7 +434,7 @@ export const App: React.FC = () => {
     <AppShell
       activeTab={activeTab}
       onTabChange={goTab}
-      openTasksCount={tasks.filter((t) => t.status !== 'COMPLETED').length}
+      openTasksCount={countOpenTasks(tasks)}
       activeSevCount={incidents.filter((i) => (i.severity === 'SEV-0' || i.severity === 'SEV-1') && i.status !== 'RESOLVED').length}
       unreadChatCount={unreadChatCount}
       isOpenMobile={isOpenMobile}
@@ -418,7 +442,7 @@ export const App: React.FC = () => {
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
       onOpenIntake={() => goTab('intake')}
-      onSearchQuery={setGlobalSearchQuery}
+      onSearchQuery={handleGlobalSearch}
       dbConnected={dbConnected}
       usingCrdb={apiService.isUsingCrdb()}
       userName={displayName}

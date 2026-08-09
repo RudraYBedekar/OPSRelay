@@ -25,12 +25,21 @@ export function assertSafeSelectSql(sql: string, allowedTable: string): void {
   const normalized = sql.trim().toLowerCase();
   if (normalized.includes(';')) throw new Error('Multiple SQL statements are not allowed');
   if (!normalized.startsWith('select')) throw new Error('Only SELECT queries are allowed');
+  if (/\bwith\b/.test(normalized) && /\b(insert|update|delete)\b/.test(normalized)) {
+    throw new Error('CTE writes are not allowed');
+  }
+  if (/\bjoin\b/.test(normalized)) throw new Error('JOIN queries are not allowed');
   const forbidden = ['insert', 'update', 'delete', 'drop', 'create', 'alter', 'grant'];
   for (const word of forbidden) {
     const pattern = new RegExp(`\\b${word}\\b`, 'i');
     if (pattern.test(normalized)) throw new Error(`Forbidden SQL keyword: ${word}`);
   }
-  if (!normalized.includes(allowedTable.toLowerCase())) {
+  const fromMatches = normalized.match(/\bfrom\s+([a-z_][a-z0-9_]*)/g);
+  if (!fromMatches || fromMatches.length !== 1) {
+    throw new Error('Query must use a single FROM clause on the approved evidence table');
+  }
+  const tableName = fromMatches[0].replace(/\bfrom\s+/, '');
+  if (tableName !== allowedTable.toLowerCase()) {
     throw new Error('Query must target approved evidence table only');
   }
 }

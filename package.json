@@ -14,7 +14,7 @@
     "db:seed-industry-incidents": "tsx server/scripts/seedIndustryIncidents.ts",
     "db:backfill-welcome-incidents": "tsx server/scripts/backfillWelcomeIncidents.ts",
     "db:sample-logs": "tsx server/scripts/seedSampleLogs.ts",
-    "test:e2e": "tsx server/scripts/e2eTest.ts",
+    "demo:preflight": "tsx server/scripts/demoPreflight.ts",
     "test:db": "node servers/test-db.js",
     "db:embed": "tsx server/scripts/embedIncidents.ts",
     "db:migrate": "tsx server/scripts/runMigrations.ts",

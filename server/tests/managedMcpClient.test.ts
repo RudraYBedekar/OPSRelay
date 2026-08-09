@@ -53,7 +53,7 @@ describe('managed MCP client', () => {
     const { executeViaManagedMcp } = await import('../mcp/managedMcpClient.js');
     const { buildInvestigationQuery } = await import('../mcp/investigationQueries.js');
 
-    const spec = buildInvestigationQuery('service_history', 'checkout-api', 5);
+    const spec = buildInvestigationQuery('service_history', 'checkout-api', null, 5);
     const result = await executeViaManagedMcp(spec);
 
     expect(result.transport).toBe('managed_mcp');
@@ -69,7 +69,7 @@ describe('managed MCP client', () => {
     const { executeViaManagedMcp } = await import('../mcp/managedMcpClient.js');
     const { buildInvestigationQuery } = await import('../mcp/investigationQueries.js');
 
-    const spec = buildInvestigationQuery('service_history', 'checkout-api', 5);
+    const spec = buildInvestigationQuery('service_history', 'checkout-api', null, 5);
     await expect(executeViaManagedMcp(spec)).rejects.toMatchObject({ status: 503 });
   });
 });

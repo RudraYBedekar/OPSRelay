@@ -35,6 +35,7 @@ export interface AgentResult {
     service: string;
     summary: string;
     similarityScore: number;
+    retrievalMode?: 'vector' | 'keyword' | 'corpus';
     keyTakeaway: string;
     severity?: string;
     status?: string;
@@ -48,6 +49,11 @@ export interface AgentResult {
     suggestedService: string;
     confidence: number;
   };
+}
+
+function scoreLabel(score: number, mode?: 'vector' | 'keyword' | 'corpus'): string {
+  if (mode === 'keyword' || mode === 'corpus') return `${score}% keyword relevance`;
+  return `${score}% vector similarity`;
 }
 
 function buildLocalAgentAnswer(
@@ -74,7 +80,7 @@ function buildLocalAgentAnswer(
     text += `No strong historical matches were found. Proceed with standard triage: confirm metrics, check recent deploys, and document findings.\n\n`;
   } else {
     for (const m of similar) {
-      text += `- **${m.id}** (${m.similarityScore}% relevance) — ${m.title}. `;
+      text += `- **${m.id}** (${scoreLabel(m.similarityScore, m.retrievalMode)}) — ${m.title}. `;
       text += `Prior remediation: ${m.keyTakeaway}\n`;
     }
     text += `\n`;
@@ -139,6 +145,7 @@ export function extractIncidentId(text: string): string | null {
 function incidentToMatch(
   inc: IncidentRecord & { severity?: string; status?: string; title?: string; fixesApplied?: string[] },
   similarityScore: number,
+  retrievalMode?: 'vector' | 'keyword' | 'corpus',
 ) {
   return {
     id: inc.id,
@@ -146,6 +153,7 @@ function incidentToMatch(
     service: inc.service,
     summary: inc.summary,
     similarityScore,
+    retrievalMode,
     keyTakeaway: inc.fixesApplied?.[0] ?? inc.summary.slice(0, 120),
     severity: inc.severity,
     status: inc.status,
@@ -255,6 +263,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
         status: inc?.status,
       },
       hit.similarityScore,
+      hit.retrievalMode,
     );
   });
 
@@ -288,7 +297,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
     }
 
     if (activeIncident) {
-      const direct = incidentToMatch(activeIncident, 100);
+      const direct = incidentToMatch(activeIncident, 100, 'corpus');
       const withoutDup = similarIncidents.filter((s) => s.id !== queriedIncidentId);
       similarIncidents.length = 0;
       similarIncidents.push(direct, ...withoutDup.slice(0, 4));
@@ -314,7 +323,7 @@ export async function runAgent(queryText: string, incidentId?: string, viewer?: 
       steps.push({
         step: 5,
         action: 'Best corpus match',
-        detail: `Using ${similarIncidents[0].id} as primary context (${similarIncidents[0].similarityScore}% match)`,
+        detail: `Using ${similarIncidents[0].id} as primary context (${scoreLabel(similarIncidents[0].similarityScore, similarIncidents[0].retrievalMode)})`,
         status: 'done',
       });
     }

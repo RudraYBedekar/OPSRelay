@@ -21,13 +21,14 @@ const decisionSchema = z.object({
 const taskSchema = z.object({
   title: z.string().max(500),
   assignee: z.string().max(120).optional().default('Unassigned (Ops Team)'),
-  status: z.enum(['TODO', 'IN_PROGRESS', 'COMPLETED']).optional().default('TODO'),
+  status: z.enum(['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED']).optional().default('TODO'),
   priority: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).optional().default('MEDIUM'),
   severity: severitySchema.optional().default('SEV-2'),
   createdAt: z.string().optional(),
 });
 
 export const extractionResultSchema = z.object({
+  title: z.string().trim().min(3).max(200).optional(),
   severity: severitySchema.default('SEV-2'),
   severityReason: z.string().max(2000).optional().default(''),
   service: z.string().max(120).default('unknown-service'),

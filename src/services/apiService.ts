@@ -17,7 +17,7 @@ import {
 } from '../data/mockData';
 import { crdbClient } from './crdbClient';
 import { buildExecutiveSummary } from '../utils/summaryFormat';
-import { buildDefaultTask, parseDefaultTaskIncidentId } from '../utils/incidentTasks';
+import { buildDefaultTask } from '../utils/incidentTasks';
 
 const USE_CRDB = import.meta.env.VITE_USE_CRDB === 'true';
 
@@ -340,38 +340,29 @@ class ApiService {
   }
 
   // Update status of a task
-  public async updateTaskStatus(taskId: string, status: TaskStatus): Promise<ActionItemTask> {
+  public async updateTaskStatus(incidentId: string, taskId: string, status: TaskStatus): Promise<ActionItemTask> {
     await this.checkError();
-    if (USE_CRDB) return crdbClient.updateTaskStatus(taskId, status);
+    if (USE_CRDB) return crdbClient.updateTaskStatus(incidentId, taskId, status);
     const incidents = await this.getIncidents();
-    let updatedTask: ActionItemTask | null = null;
+    const inc = incidents.find((i) => i.id === incidentId);
+    if (!inc) throw new Error(`Task ${taskId} not found`);
 
-    for (const inc of incidents) {
-      const taskIdx = inc.tasks.findIndex(t => t.id === taskId);
-      if (taskIdx >= 0) {
-        inc.tasks[taskIdx].status = status;
-        updatedTask = inc.tasks[taskIdx];
-        await this.saveIncident(inc);
-        break;
-      }
+    const taskIdx = inc.tasks.findIndex((t) => t.id === taskId);
+    if (taskIdx >= 0) {
+      inc.tasks[taskIdx].status = status;
+      await this.saveIncident(inc);
+      return inc.tasks[taskIdx];
     }
 
-    if (!updatedTask) {
-      const incidentId = parseDefaultTaskIncidentId(taskId);
-      if (incidentId) {
-        const inc = incidents.find((i) => i.id === incidentId);
-        if (inc) {
-          const defaultTask = buildDefaultTask(inc);
-          defaultTask.status = status;
-          inc.tasks = [defaultTask];
-          await this.saveIncident(inc);
-          updatedTask = defaultTask;
-        }
-      }
+    const defaultTask = buildDefaultTask(inc);
+    if (defaultTask.id === taskId) {
+      defaultTask.status = status;
+      inc.tasks = [defaultTask];
+      await this.saveIncident(inc);
+      return defaultTask;
     }
 
-    if (!updatedTask) throw new Error(`Task ${taskId} not found`);
-    return updatedTask;
+    throw new Error(`Task ${taskId} not found`);
   }
 
   // Memory Vector Search / Chat AI query

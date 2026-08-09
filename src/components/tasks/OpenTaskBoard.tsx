@@ -9,7 +9,7 @@ import { Kanban, List } from '@phosphor-icons/react';
 interface OpenTaskBoardProps {
   tasks: ActionItemTask[];
   incidents: Incident[];
-  onUpdateTaskStatus: (taskId: string, newStatus: TaskStatus) => void;
+  onUpdateTaskStatus: (incidentId: string, taskId: string, newStatus: TaskStatus) => void;
   onInspectIncident: (incidentId: string) => void;
 }
 
@@ -133,7 +133,7 @@ export const OpenTaskBoard: React.FC<OpenTaskBoardProps> = ({
                       <td className="px-5 py-4">
                         <select
                           value={task.status}
-                          onChange={(e) => onUpdateTaskStatus(task.id, e.target.value as TaskStatus)}
+                          onChange={(e) => onUpdateTaskStatus(task.incidentId, task.id, e.target.value as TaskStatus)}
                           className={`rounded-md border px-2.5 py-1.5 text-xs font-medium min-h-[36px] ${st.bg}`}
                           aria-label="Update task status"
                         >
@@ -177,7 +177,7 @@ export const OpenTaskBoard: React.FC<OpenTaskBoardProps> = ({
                           </div>
                           <select
                             value={task.status}
-                            onChange={(e) => onUpdateTaskStatus(task.id, e.target.value as TaskStatus)}
+                            onChange={(e) => onUpdateTaskStatus(task.incidentId, task.id, e.target.value as TaskStatus)}
                             className={`mt-3 w-full text-[10px] font-medium rounded border px-2 py-1 min-h-[36px] ${st.bg}`}
                             aria-label="Update task status"
                           >

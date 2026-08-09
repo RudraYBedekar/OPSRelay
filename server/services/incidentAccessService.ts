@@ -310,3 +310,55 @@ export async function listGrantsForOwner(ownerMemberId: string): Promise<Array<{
   );
   return rows.map((r) => ({ viewerMemberId: r.viewer_member_id, createdAt: r.created_at }));
 }
+
+/** Server-only scope for MCP investigator queries — never accept from the browser. */
+export interface InvestigatorAccessScope {
+  viewerMemberId: string;
+  allowedOwnerMemberIds: string[];
+  explicitlySharedIncidentIds: string[];
+  allowedIncidentIds: string[];
+}
+
+const MAX_SCOPE_INCIDENTS = 5000;
+
+export async function getInvestigatorAccessScope(viewer: AuthUser): Promise<InvestigatorAccessScope> {
+  const viewerMemberId = normalizeMemberId(viewer.memberId);
+  const grantedOwnerIds = (await getGrantedOwnerMemberIds(viewerMemberId)).map(normalizeMemberId);
+  const allowedOwnerMemberIds = [...new Set([viewerMemberId, ...grantedOwnerIds])];
+  const grantedSet = new Set(grantedOwnerIds);
+
+  const rows = await secureQuery<{ id: string; data: Record<string, unknown> }>(
+    `SELECT id, data FROM incidents ORDER BY updated_at DESC LIMIT ${MAX_SCOPE_INCIDENTS}`,
+  );
+
+  const allowedIncidentIds: string[] = [];
+  const explicitlySharedIncidentIds: string[] = [];
+
+  for (const row of rows) {
+    const data = row.data;
+    const owner =
+      typeof data.ownerMemberId === 'string' ? normalizeMemberId(data.ownerMemberId) : undefined;
+    const shared = Array.isArray(data.sharedWithMemberIds)
+      ? data.sharedWithMemberIds
+          .filter((s): s is string => typeof s === 'string')
+          .map(normalizeMemberId)
+      : [];
+    const incId = (typeof data.id === 'string' ? data.id : row.id).trim().toUpperCase();
+
+    if (owner === viewerMemberId) {
+      allowedIncidentIds.push(incId);
+    } else if (owner && grantedSet.has(owner)) {
+      allowedIncidentIds.push(incId);
+    } else if (shared.includes(viewerMemberId)) {
+      allowedIncidentIds.push(incId);
+      explicitlySharedIncidentIds.push(incId);
+    }
+  }
+
+  return {
+    viewerMemberId,
+    allowedOwnerMemberIds,
+    explicitlySharedIncidentIds: [...new Set(explicitlySharedIncidentIds)],
+    allowedIncidentIds: [...new Set(allowedIncidentIds)],
+  };
+}

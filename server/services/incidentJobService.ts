@@ -109,6 +109,14 @@ export async function recordJobEffect(jobId: string, effectKey: string): Promise
   return rows.length > 0;
 }
 
+export async function isJobEffectCompleted(jobId: string, effectKey: string): Promise<boolean> {
+  const rows = await query<{ job_id: string }>(
+    'SELECT job_id FROM job_effects WHERE job_id = $1 AND effect_key = $2 LIMIT 1',
+    [jobId, effectKey],
+  );
+  return rows.length > 0;
+}
+
 export async function getJobsForIncident(incidentId: string): Promise<Array<{
   jobType: JobType;
   status: JobStatus;

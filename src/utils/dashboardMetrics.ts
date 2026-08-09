@@ -1,4 +1,5 @@
 import type { ActionItemTask, DashboardMetrics, Incident } from '../types/incident';
+import { countOpenTasks } from './taskMetrics';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -25,7 +26,7 @@ export function deriveLiveMetrics(
           resolvedWithMttr.reduce((sum, i) => sum + (i.mttrMinutes ?? 0), 0) / resolvedWithMttr.length,
         )
       : (base?.avgMttrMinutes ?? 0);
-  const openTasksCount = tasks.filter((t) => t.status !== 'COMPLETED').length;
+  const openTasksCount = countOpenTasks(tasks);
 
   return {
     totalIncidents24h,

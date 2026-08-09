@@ -17,11 +17,11 @@ export type EvidenceQueryResult = {
 
 /** Local SQL demo path — never labeled as Managed MCP. */
 export async function executeEvidenceQuery(spec: InvestigationQuerySpec): Promise<EvidenceQueryResult> {
-  assertSafeSelectSql(spec.sql, 'incident_evidence');
   assertToolAllowed('select_query');
+  const sql = renderInvestigationSql(spec);
 
   try {
-    const rows = await query<EvidenceRow>(spec.sql, [spec.params[0]]);
+    const rows = await query<EvidenceRow>(sql);
     markMcpRequestFailed(false);
     return {
       rows: rows.slice(0, mcpConfig.maxResults),

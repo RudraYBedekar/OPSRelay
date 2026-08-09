@@ -1,17 +1,12 @@
 import { Router } from 'express';
-import { query, queryOne } from '../db.js';
+import { query } from '../db.js';
 import {
-  buildDefaultTask,
   flattenIncidentTasks,
-  parseDefaultTaskIncidentId,
-  type IncidentTask,
   type IncidentWithTasks,
 } from '../utils/incidentTasks.js';
-import {
-  canEditIncident,
-  filterIncidentsForUser,
-} from '../services/incidentAccessService.js';
-import { isAuthEnabled } from '../config/auth.js';
+import { filterIncidentsForUser } from '../services/incidentAccessService.js';
+import { parseTaskStatus } from '../schemas/taskStatus.js';
+import { updateTaskStatusById } from '../utils/updateIncidentTaskStatus.js';
 
 export const tasksRouter = Router();
 
@@ -32,77 +27,17 @@ tasksRouter.get('/', async (req, res, next) => {
   }
 });
 
+/** Legacy route — resolves incident from task id pattern; prefer scoped PATCH on incidents router. */
 tasksRouter.patch('/:taskId/status', async (req, res, next) => {
   try {
-    const taskId = req.params.taskId;
-    const status = req.body.status as IncidentTask['status'];
-
-    const rows = await query<{ id: string; data: Record<string, unknown> }>(
-      'SELECT id, data FROM incidents',
-    );
-
-    for (const row of rows) {
-      const tasks = (row.data.tasks ?? []) as IncidentTask[];
-      const idx = tasks.findIndex((t) => t.id === taskId);
-      if (idx >= 0) {
-        const incident = {
-          ...(row.data as unknown as IncidentWithTasks),
-          ownerMemberId: typeof row.data.ownerMemberId === 'string' ? row.data.ownerMemberId : undefined,
-        };
-        if (isAuthEnabled() && req.user) {
-          if (!canEditIncident(incident, req.user)) {
-            res.status(404).json({ error: `Task ${taskId} not found` });
-            return;
-          }
-        }
-        tasks[idx].status = status;
-        row.data.tasks = tasks;
-        await query(
-          'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
-          [row.id, JSON.stringify(row.data)],
-        );
-        res.json(tasks[idx]);
-        return;
-      }
-    }
-
-    const incidentId = parseDefaultTaskIncidentId(taskId);
-    if (incidentId) {
-      const row = await queryOne<{ id: string; data: IncidentWithTasks }>(
-        'SELECT id, data FROM incidents WHERE id = $1',
-        [incidentId],
-      );
-      if (!row) {
-        res.status(404).json({ error: `Task ${taskId} not found` });
-        return;
-      }
-
-      const incident = { ...row.data, id: row.data.id ?? row.id };
-      if (isAuthEnabled() && req.user) {
-        if (!canEditIncident(incident, req.user)) {
-          res.status(404).json({ error: `Task ${taskId} not found` });
-          return;
-        }
-      }
-
-      const defaultTask = buildDefaultTask(incident);
-      if (defaultTask.id !== taskId) {
-        res.status(404).json({ error: `Task ${taskId} not found` });
-        return;
-      }
-
-      defaultTask.status = status;
-      const data = { ...row.data, tasks: [defaultTask] };
-      await query(
-        'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
-        [row.id, JSON.stringify(data)],
-      );
-      res.json(defaultTask);
+    const status = parseTaskStatus(req.body);
+    const task = await updateTaskStatusById(req.params.taskId, status, req.user);
+    res.json(task);
+  } catch (err) {
+    if (err && typeof err === 'object' && 'status' in err && err.status === 404) {
+      res.status(404).json({ error: err instanceof Error ? err.message : 'Task not found' });
       return;
     }
-
-    res.status(404).json({ error: `Task ${taskId} not found` });
-  } catch (err) {
     next(err);
   }
 });

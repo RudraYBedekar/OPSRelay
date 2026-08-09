@@ -110,8 +110,8 @@ export const crdbClient = {
       body: JSON.stringify({ rawNotes }),
     }),
   getTasks: () => request<import('../types/incident').ActionItemTask[]>('/tasks'),
-  updateTaskStatus: (taskId: string, status: import('../types/incident').TaskStatus) =>
-    request<import('../types/incident').ActionItemTask>(`/tasks/${taskId}/status`, {
+  updateTaskStatus: (incidentId: string, taskId: string, status: import('../types/incident').TaskStatus) =>
+    request<import('../types/incident').ActionItemTask>(`/incidents/${incidentId}/tasks/${taskId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),

@@ -1,15 +1,32 @@
 import React, { useState } from 'react';
-import type { Incident } from '../../types/incident';
+import type { Incident, TaskStatus } from '../../types/incident';
 import { FileText, Copy, Check, DownloadSimple, X } from '@phosphor-icons/react';
+import { isOpenTaskStatus } from '../../utils/taskMetrics';
 
 interface ExportReportModalProps {
   incident: Incident;
   onClose: () => void;
 }
 
+const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  TODO: 'Open',
+  IN_PROGRESS: 'In progress',
+  BLOCKED: 'Blocked',
+  COMPLETED: 'Completed',
+};
+
+function taskCheckbox(status: TaskStatus): string {
+  if (status === 'COMPLETED') return 'x';
+  if (status === 'IN_PROGRESS') return '~';
+  if (status === 'BLOCKED') return '!';
+  return ' ';
+}
+
 function buildNextSteps(incident: Incident): string[] {
-  const openTasks = incident.tasks.filter((t) => t.status !== 'COMPLETED');
-  const steps = openTasks.slice(0, 4).map((t) => `${t.title} (${t.priority}, ${t.assignee})`);
+  const openTasks = incident.tasks.filter((t) => isOpenTaskStatus(t.status));
+  const steps = openTasks.slice(0, 4).map(
+    (t) => `${t.title} (${TASK_STATUS_LABEL[t.status]}, ${t.priority}, ${t.assignee})`,
+  );
   if (incident.status !== 'RESOLVED') {
     steps.unshift(`Confirm ${incident.service} health metrics and error rate before shift handoff`);
   }
@@ -62,7 +79,7 @@ ${incident.fixesApplied.length > 0
 
 ## Action Items & Tasks
 ${incident.tasks.length > 0
-    ? incident.tasks.map((t) => `- [${t.status === 'COMPLETED' ? 'x' : ' '}] **[${t.priority}]** ${t.title} (Assignee: ${t.assignee})`).join('\n')
+    ? incident.tasks.map((t) => `- [${taskCheckbox(t.status)}] **${TASK_STATUS_LABEL[t.status]} · [${t.priority}]** ${t.title} (Assignee: ${t.assignee})`).join('\n')
     : '_No tasks assigned._'}
 
 ---
@@ -98,16 +115,16 @@ ${nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="handoff-report-title">
       <div className="w-full max-w-3xl rounded-xl border border-ops-border bg-white p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between border-b border-ops-border pb-3">
           <div className="flex items-center gap-2">
             <FileText size={20} weight="regular" className="text-brand" aria-hidden />
-            <h3 className="text-base font-semibold text-ops-text">
+            <h3 id="handoff-report-title" className="text-base font-semibold text-ops-text">
               Handoff Report: {incident.id}
             </h3>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 text-ops-muted hover:text-ops-text">
+          <button type="button" onClick={onClose} aria-label="Close handoff report" className="rounded-lg p-1 text-ops-muted hover:text-ops-text min-h-[44px] min-w-[44px]">
             <X size={20} weight="regular" aria-hidden />
           </button>
         </div>
@@ -122,7 +139,7 @@ ${nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
             <button
               type="button"
               onClick={handleCopy}
-              className="ops-btn-secondary text-xs min-h-[36px]"
+              className="ops-btn-secondary text-xs min-h-[44px]"
             >
               {copied ? <Check size={14} weight="regular" className="text-emerald-600" aria-hidden /> : <Copy size={14} weight="regular" aria-hidden />}
               {copied ? 'Copied' : 'Copy'}
@@ -130,7 +147,7 @@ ${nextSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
             <button
               type="button"
               onClick={handleDownload}
-              className="ops-btn-primary text-xs min-h-[36px]"
+              className="ops-btn-primary text-xs min-h-[44px]"
             >
               <DownloadSimple size={14} weight="regular" aria-hidden /> Download .md
             </button>

@@ -14,6 +14,7 @@ export interface EvidenceProjectionInput {
   tasks?: Array<{ title: string }>;
   sourceUpdatedAt: string;
   ownerScope?: string;
+  ownerMemberId?: string;
 }
 
 export function sanitizeEvidenceText(value: unknown, maxLength: number): string | null {
@@ -43,6 +44,7 @@ export async function projectIncidentEvidence(input: EvidenceProjectionInput): P
     2000,
   );
   const ownerScope = sanitizeEvidenceText(input.ownerScope, 64);
+  const ownerMemberId = sanitizeEvidenceText(input.ownerMemberId ?? input.ownerScope, 64);
 
   const contentHash = createHash('sha256')
     .update([title, service, severity, status, summary, resolution ?? '', decisionSummary ?? '', taskSummary ?? ''].join('|'))
@@ -67,8 +69,8 @@ export async function projectIncidentEvidence(input: EvidenceProjectionInput): P
     `INSERT INTO incident_evidence (
        incident_id, title, service, severity, status,
        approved_summary, approved_resolution, decision_summary, task_summary,
-       source_updated_at, evidence_version, citation_id, content_hash, source_owner_scope, projected_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11,$12,$13,$14,now())
+       source_updated_at, evidence_version, citation_id, content_hash, source_owner_scope, source_owner_member_id, projected_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11,$12,$13,$14,$15,now())
      ON CONFLICT (incident_id) DO UPDATE SET
        title = EXCLUDED.title,
        service = EXCLUDED.service,
@@ -83,6 +85,7 @@ export async function projectIncidentEvidence(input: EvidenceProjectionInput): P
        citation_id = EXCLUDED.citation_id,
        content_hash = EXCLUDED.content_hash,
        source_owner_scope = EXCLUDED.source_owner_scope,
+       source_owner_member_id = EXCLUDED.source_owner_member_id,
        projected_at = now()`,
     [
       input.incidentId,
@@ -99,6 +102,7 @@ export async function projectIncidentEvidence(input: EvidenceProjectionInput): P
       citationId,
       contentHash,
       ownerScope,
+      ownerMemberId,
     ],
   );
 }

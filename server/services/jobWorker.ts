@@ -7,7 +7,7 @@ import {
   incrementSuppressedCount,
 } from './alertFatigueService.js';
 import { projectIncidentEvidence } from './evidenceProjectionService.js';
-import { processJobBatch, recordJobEffect } from './incidentJobService.js';
+import { processJobBatch, recordJobEffect, isJobEffectCompleted } from './incidentJobService.js';
 import type { JobType } from '../types/analysis.js';
 
 interface JobIncidentData extends IncidentRecord {
@@ -39,14 +39,15 @@ async function handleJob(incidentId: string, jobType: JobType, jobId: string): P
 
   switch (jobType) {
     case 'index_incident_vector': {
-      const firstWrite = await recordJobEffect(jobId, `index:${incidentId}`);
-      if (!firstWrite) return;
+      const effectKey = `index:${incidentId}`;
+      if (await isJobEffectCompleted(jobId, effectKey)) return;
       await indexIncident(incident);
+      await recordJobEffect(jobId, effectKey);
       break;
     }
     case 'evaluate_alert_duplicate': {
-      const firstWrite = await recordJobEffect(jobId, `alert-eval:${incidentId}`);
-      if (!firstWrite) return;
+      const effectKey = `alert-eval:${incidentId}`;
+      if (await isJobEffectCompleted(jobId, effectKey)) return;
 
       const alertText = buildAlertText({
         title: incident.title,
@@ -71,12 +72,13 @@ async function handleJob(incidentId: string, jobType: JobType, jobId: string): P
         'UPDATE incidents SET data = $2::jsonb, updated_at = now() WHERE id = $1',
         [incidentId, JSON.stringify(incident)],
       );
+      await recordJobEffect(jobId, effectKey);
       break;
     }
     case 'project_mcp_evidence': {
       if (incident.analysisStatus !== 'approved') return;
-      const firstWrite = await recordJobEffect(jobId, `evidence:${incidentId}:${row.updated_at}`);
-      if (!firstWrite) return;
+      const effectKey = `evidence:${incidentId}:${row.updated_at}`;
+      if (await isJobEffectCompleted(jobId, effectKey)) return;
       await projectIncidentEvidence({
         incidentId,
         title: incident.title,
@@ -88,8 +90,10 @@ async function handleJob(incidentId: string, jobType: JobType, jobId: string): P
         decisions: incident.decisions,
         tasks: incident.tasks,
         sourceUpdatedAt: row.updated_at,
-        ownerScope: ownerMemberId.slice(0, 8),
+        ownerMemberId,
+        ownerScope: ownerMemberId,
       });
+      await recordJobEffect(jobId, effectKey);
       break;
     }
     default:

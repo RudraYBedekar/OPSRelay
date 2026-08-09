@@ -4,6 +4,8 @@ import { embedText, vectorToSql, getEmbedMode } from './embedService.js';
 import { scanAndRedactSecrets } from '../utils/redactSecrets.js';
 import { CORPUS_MATCH_THRESHOLD, SIMILARITY_THRESHOLD } from '../utils/embeddingValidation.js';
 
+export type RetrievalMode = 'vector' | 'keyword' | 'corpus';
+
 export interface VectorSearchHit {
   incidentId: string;
   chunkType: string;
@@ -11,6 +13,7 @@ export interface VectorSearchHit {
   service: string;
   distance: number;
   similarityScore: number;
+  retrievalMode: RetrievalMode;
 }
 
 export interface IncidentRecord {
@@ -178,6 +181,7 @@ export async function searchSimilarIncidents(
       service: row.service,
       distance: row.distance,
       similarityScore,
+      retrievalMode: 'vector',
     });
     if (hits.length >= limit) break;
   }
@@ -222,6 +226,7 @@ export function searchIncidentsInCorpus(
         service: inc.service,
         distance: 1 - similarityScore / 100,
         similarityScore,
+        retrievalMode: 'corpus' as const,
       };
     })
     .filter((h) => h.similarityScore >= CORPUS_MATCH_THRESHOLD)
@@ -262,6 +267,7 @@ export function keywordSearchFallback(
         service: inc.service,
         distance: 1 - similarityScore / 100,
         similarityScore,
+        retrievalMode: 'keyword' as const,
       };
     })
     .filter((h) => h.similarityScore >= CORPUS_MATCH_THRESHOLD)

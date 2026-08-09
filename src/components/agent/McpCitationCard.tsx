@@ -5,10 +5,18 @@ import type { McpCitation } from '../../types/investigator';
 interface McpCitationCardProps {
   citation: McpCitation;
   onInspectIncident?: (id: string) => void;
+  loadingIncidentId?: string | null;
 }
 
-export const McpCitationCard: React.FC<McpCitationCardProps> = ({ citation, onInspectIncident }) => {
+export const McpCitationCard: React.FC<McpCitationCardProps> = ({
+  citation,
+  onInspectIncident,
+  loadingIncidentId,
+}) => {
   const label = citation.source === 'cockroachdb-managed-mcp' ? 'Managed MCP' : 'SQL demo evidence';
+  const canOpen = Boolean(onInspectIncident);
+  const isLoading = loadingIncidentId === citation.incidentId;
+
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -24,7 +32,7 @@ export const McpCitationCard: React.FC<McpCitationCardProps> = ({ citation, onIn
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-ops-muted">
         <span>{citation.service}</span>
         <span>·</span>
-        <span>{citation.field}</span>
+        <span>Field: {citation.field}</span>
         {citation.evidenceVersion != null && (
           <>
             <span>·</span>
@@ -32,14 +40,16 @@ export const McpCitationCard: React.FC<McpCitationCardProps> = ({ citation, onIn
           </>
         )}
         <span>·</span>
-        <span>{new Date(citation.retrievedAt).toLocaleTimeString()}</span>
-        {onInspectIncident && (
+        <span>{new Date(citation.retrievedAt).toLocaleString()}</span>
+        {canOpen && (
           <button
             type="button"
-            onClick={() => onInspectIncident(citation.incidentId)}
-            className="inline-flex items-center gap-1 text-brand hover:underline"
+            disabled={isLoading}
+            onClick={() => onInspectIncident?.(citation.incidentId)}
+            aria-label={`Open source incident ${citation.incidentId}`}
+            className="inline-flex items-center gap-1 text-brand hover:underline disabled:opacity-60 min-h-[44px]"
           >
-            {citation.incidentId}
+            {isLoading ? 'Loading…' : citation.incidentId}
             <ArrowSquareOut size={12} weight="regular" aria-hidden />
           </button>
         )}

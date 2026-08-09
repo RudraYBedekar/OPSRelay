@@ -63,6 +63,22 @@ export function parseDefaultTaskIncidentId(taskId: string): string | null {
   return incidentId.length > 0 ? incidentId : null;
 }
 
+/** Parse incident id from generated task ids (`tsk-INC-8942-a1b2c3d4-0`). */
+export function parseGeneratedTaskIncidentId(taskId: string): string | null {
+  if (!taskId.startsWith('tsk-')) return null;
+  const parts = taskId.split('-');
+  if (parts.length < 4) return null;
+  const index = parts[parts.length - 1];
+  const runSlice = parts[parts.length - 2];
+  if (!/^\d+$/.test(index) || !/^[a-zA-Z0-9]{8}$/.test(runSlice)) return null;
+  const incidentId = parts.slice(1, -2).join('-');
+  return incidentId.length > 0 ? incidentId.toUpperCase() : null;
+}
+
+export function parseTaskIncidentId(taskId: string): string | null {
+  return parseDefaultTaskIncidentId(taskId) ?? parseGeneratedTaskIncidentId(taskId);
+}
+
 /** Ensure every open incident has at least one trackable task for the task board. */
 export function ensureIncidentTasks(incident: IncidentWithTasks): IncidentTask[] {
   const existing = (incident.tasks ?? []).map((task) => ({

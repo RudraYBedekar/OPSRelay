@@ -1,8 +1,8 @@
 # OpsRelay Demo Flow (5–7 minutes)
 
-Live URL: **http://18.232.197.149/** (HTTPS: run certbot per `docs/EC2_DEPLOY.md` if required)
+Live URL: **http://18.232.197.149/** (enable HTTPS per `deploy/nginx-opsrelay.conf` and `docs/EC2_DEPLOY.md`)
 
-**Demo account:** `yash` / `OpsRelay2026!` (or register a new account — 5 welcome incidents auto-seed)
+**Demo account:** Use a registered account or set `DEMO_PREFLIGHT_USER` / `DEMO_PREFLIGHT_PASSWORD` env vars. Run `npm run demo:preflight` to verify login before a demo — credentials are never stored in this doc.
 
 **Prep on EC2 (once):**
 ```bash

@@ -74,6 +74,7 @@ export interface Incident {
 }
 
 export interface ExtractionResult {
+  title?: string;
   severity: Severity;
   severityReason: string;
   service: string;
