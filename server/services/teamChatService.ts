@@ -135,16 +135,32 @@ async function canAccessChat(
 }
 
 async function countUnreadForChat(chatId: string, memberId: string): Promise<number> {
+  const cursor = await queryOne<{ last_read_at: string }>(
+    `SELECT last_read_at FROM team_chat_read_cursors
+     WHERE chat_id = $1 AND member_id = $2`,
+    [chatId, memberId],
+  );
+
+  if (!cursor) {
+    const row = await queryOne<{ n: number }>(
+      `SELECT count(*)::int AS n
+       FROM team_chat_messages
+       WHERE chat_id = $1
+         AND sender_member_id != $2
+         AND message_type != 'system'`,
+      [chatId, memberId],
+    );
+    return row?.n ?? 0;
+  }
+
   const row = await queryOne<{ n: number }>(
     `SELECT count(*)::int AS n
      FROM team_chat_messages m
-     LEFT JOIN team_chat_read_cursors r
-       ON r.chat_id = m.chat_id AND r.member_id = $2
      WHERE m.chat_id = $1
        AND m.sender_member_id != $2
        AND m.message_type != 'system'
-       AND m.created_at > COALESCE(r.last_read_at, '1970-01-01'::timestamptz)`,
-    [chatId, memberId],
+       AND m.created_at > $3`,
+    [chatId, memberId, cursor.last_read_at],
   );
   return row?.n ?? 0;
 }

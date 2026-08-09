@@ -133,16 +133,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!collapsed && (
                 <>
                   <span className={`flex-1 text-sm ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
-                  {badge != null && (
+                      {badge != null && badge > 0 && (
                     <span className={`flex h-5 min-w-[1.25rem] items-center justify-center rounded-md px-1 text-[10px] font-semibold ${
                       id === 'chat' ? 'bg-brand text-white' : 'bg-amber-100 text-amber-900'
                     }`}>
-                      {badge > 99 ? '99+' : badge}
+                      {badge}
                     </span>
                   )}
                 </>
               )}
-              {collapsed && badge != null && (
+              {collapsed && badge != null && badge > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
                   {badge > 9 ? '9+' : badge}
                 </span>

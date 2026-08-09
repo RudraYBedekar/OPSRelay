@@ -18,7 +18,6 @@ import { ChatCameraModal } from './ChatCameraModal';
 import type {
   GuestDuration,
   TeamChatDetail,
-  TeamChatMember,
   TeamChatSummary,
 } from '../../types/teamChat';
 import { GUEST_DURATION_OPTIONS } from '../../types/teamChat';
@@ -55,7 +54,6 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
   const { user } = useAuth();
   const { toast } = useToast();
   const [chats, setChats] = useState<TeamChatSummary[]>([]);
-  const [members, setMembers] = useState<TeamChatMember[]>([]);
   const [activeChat, setActiveChat] = useState<TeamChatDetail | null>(null);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
@@ -73,12 +71,8 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
   const loadChats = useCallback(async () => {
     if (!apiService.isUsingCrdb()) return;
     try {
-      const [chatList, memberList] = await Promise.all([
-        apiService.listTeamChats(),
-        apiService.listTeamChatMembers(),
-      ]);
+      const chatList = await apiService.listTeamChats();
       setChats(chatList);
-      setMembers(memberList);
       onUnreadChange?.();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Failed to load chats', 'error');
@@ -328,20 +322,6 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                 Go
               </button>
             </div>
-            {members.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {members.slice(0, 4).map((m) => (
-                  <button
-                    key={m.memberId}
-                    type="button"
-                    onClick={() => void startChat(m.memberId)}
-                    className="rounded-full border border-ops-border bg-white px-2 py-0.5 text-[11px] text-ops-subtext hover:border-brand hover:text-brand"
-                  >
-                    {m.name}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
@@ -353,7 +333,9 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
               <p className="p-3 text-sm text-ops-muted">No conversations yet.</p>
             ) : (
               <ul className="space-y-1">
-                {chats.map((chat) => (
+                {chats.map((chat) => {
+                  const unread = chat.unreadCount ?? 0;
+                  return (
                   <li key={chat.id}>
                     <button
                       type="button"
@@ -363,17 +345,17 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       }}
                       className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${
                         selectedChatId === chat.id ? 'bg-brand-light border border-brand-muted' : 'hover:bg-slate-50'
-                      } ${chat.unreadCount ? 'border-l-2 border-l-brand' : ''}`}
+                      } ${unread > 0 ? 'border-l-2 border-l-brand' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm truncate ${chat.unreadCount ? 'font-bold text-ops-text' : 'font-medium text-ops-text'}`}>
+                        <p className={`text-sm truncate ${unread > 0 ? 'font-bold text-ops-text' : 'font-medium text-ops-text'}`}>
                           {chat.otherMember.name}
                         </p>
-                        {chat.unreadCount ? (
+                        {unread > 0 && (
                           <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
-                            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                            {unread}
                           </span>
-                        ) : null}
+                        )}
                       </div>
                       <p className="text-[10px] font-mono text-ops-muted">{chat.otherMember.memberId}</p>
                       {chat.lastMessage && (
@@ -387,7 +369,8 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       )}
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>
