@@ -3,21 +3,14 @@ import {
   SquaresFour,
   Database,
   SignOut,
-  List,
-  X,
   Plus,
   MagnifyingGlass,
   ShareNetwork,
-  SidebarSimple,
 } from '@phosphor-icons/react';
 import { UserAvatar } from '../common/UserAvatar';
 import { ICON_SIZE } from '../common/iconTypes';
 
 interface TopHeaderProps {
-  onToggleMobileSidebar: () => void;
-  isMobileSidebarOpen?: boolean;
-  onToggleDesktopSidebar?: () => void;
-  sidebarCollapsed?: boolean;
   onOpenIntake: () => void;
   onSearchQuery?: (query: string) => void;
   dbConnected?: boolean | null;
@@ -31,10 +24,6 @@ interface TopHeaderProps {
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
-  onToggleMobileSidebar,
-  isMobileSidebarOpen = false,
-  onToggleDesktopSidebar,
-  sidebarCollapsed = false,
   onOpenIntake,
   onSearchQuery,
   dbConnected,
@@ -61,33 +50,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 border-b border-ops-border bg-white">
       <div className="flex h-14 items-center gap-3 px-4 md:px-6">
-        <button
-          type="button"
-          onClick={onToggleMobileSidebar}
-          className="ops-icon-btn md:hidden relative z-[60] shrink-0"
-          aria-label={isMobileSidebarOpen ? 'Close navigation' : 'Open navigation'}
-          aria-expanded={isMobileSidebarOpen}
-        >
-          {isMobileSidebarOpen ? (
-            <X size={ICON_SIZE.page} aria-hidden />
-          ) : (
-            <List size={ICON_SIZE.page} aria-hidden />
-          )}
-        </button>
-
-        {onToggleDesktopSidebar && (
-          <button
-            type="button"
-            onClick={onToggleDesktopSidebar}
-            className="ops-icon-btn hidden md:inline-flex shrink-0"
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            <SidebarSimple size={ICON_SIZE.page} aria-hidden />
-          </button>
-        )}
-
         <div className="hidden md:flex items-center gap-2 shrink-0 pr-2 border-r border-ops-border mr-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand text-white">
             <SquaresFour size={18} weight="bold" aria-hidden />

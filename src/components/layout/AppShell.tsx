@@ -62,10 +62,6 @@ export const AppShell: React.FC<AppShellProps> = ({
     />
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
       <TopHeader
-        onToggleMobileSidebar={() => setIsOpenMobile(!isOpenMobile)}
-        isMobileSidebarOpen={isOpenMobile}
-        onToggleDesktopSidebar={onToggleSidebar}
-        sidebarCollapsed={sidebarCollapsed}
         onOpenIntake={onOpenIntake}
         onSearchQuery={onSearchQuery}
         dbConnected={dbConnected}

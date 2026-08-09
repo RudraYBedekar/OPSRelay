@@ -6,7 +6,6 @@ import {
   PaperPlaneTilt,
   Sparkle,
   ListChecks,
-  X,
   SidebarSimple,
   Warning,
 } from '@phosphor-icons/react';
@@ -48,23 +47,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => (
   <>
-    {isOpenMobile && (
-      <div
-        className="fixed inset-0 z-40 bg-slate-900/20 md:hidden"
-        onClick={() => setIsOpenMobile(false)}
-        aria-hidden
-      />
-    )}
-
     <aside
       className={[
-        'flex h-dvh shrink-0 flex-col border-r border-ops-border bg-ops-sidebar transition-[width,transform] duration-150',
+        'flex h-dvh shrink-0 flex-col border-r border-ops-border bg-ops-sidebar transition-[width] duration-150',
         collapsed ? 'w-[3.75rem]' : 'w-56',
-        'md:sticky md:top-0 md:z-40 md:translate-x-0 md:pointer-events-auto',
-        'max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50',
-        isOpenMobile
-          ? 'max-md:translate-x-0 max-md:pointer-events-auto'
-          : 'max-md:-translate-x-full max-md:pointer-events-none',
+        'sticky top-0 z-40',
       ].join(' ')}
     >
       <div
@@ -94,17 +81,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <SidebarSimple size={ICON_SIZE.button} aria-hidden />
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setIsOpenMobile(false)}
-              className="ops-icon-btn shrink-0 md:hidden"
-              aria-label="Close menu"
-            >
-              <X size={ICON_SIZE.button} aria-hidden />
-            </button>
           </>
         ) : (
-          <>
+          onToggleCollapse && (
             <button
               type="button"
               onClick={onToggleCollapse}
@@ -114,15 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <SidebarSimple size={18} weight="bold" aria-hidden />
             </button>
-            <button
-              type="button"
-              onClick={() => setIsOpenMobile(false)}
-              className="ops-icon-btn shrink-0 md:hidden"
-              aria-label="Close menu"
-            >
-              <X size={ICON_SIZE.button} aria-hidden />
-            </button>
-          </>
+          )
         )}
       </div>
 
