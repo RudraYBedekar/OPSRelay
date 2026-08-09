@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getMcpHealth, mcpConfig } from '../config/mcp.js';
 import { probeManagedMcpConnection } from '../mcp/mcpClientFactory.js';
 import { runInvestigation } from '../services/investigatorService.js';
+import { saveInvestigatorChatToMemory } from '../services/chatPersistence.js';
 import { canUseInvestigator } from '../services/incidentAccessService.js';
 import { isAuthEnabled } from '../config/auth.js';
 
@@ -24,7 +25,11 @@ investigatorRouter.post('/query', async (req, res, next) => {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const { question, incidentId } = req.body as { question?: string; incidentId?: string };
+    const { question, incidentId, saveChat = true } = req.body as {
+      question?: string;
+      incidentId?: string;
+      saveChat?: boolean;
+    };
     if (!question?.trim()) {
       res.status(400).json({ error: 'question is required' });
       return;
@@ -33,7 +38,25 @@ investigatorRouter.post('/query', async (req, res, next) => {
       res.status(400).json({ error: 'question too long' });
       return;
     }
-    res.json(await runInvestigation(question.trim(), req.user, incidentId?.trim()));
+    const result = await runInvestigation(question.trim(), req.user, incidentId?.trim());
+
+    let savedUserMessageId: string | undefined;
+    if (saveChat !== false) {
+      try {
+        const saved = await saveInvestigatorChatToMemory(
+          question.trim(),
+          incidentId?.trim(),
+          result.answer,
+          result.citations,
+          req.user,
+        );
+        savedUserMessageId = saved.userMessageId;
+      } catch (err) {
+        console.warn('Failed to save MCP chat to memory_chats:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    res.json({ ...result, savedUserMessageId });
   } catch (err) {
     const status = (err as { status?: number }).status;
     if (status) {

@@ -22,6 +22,7 @@ interface AgentRunResult {
     severity?: string;
   }>;
   mode: string;
+  savedUserMessageId?: string;
 }
 
 interface LiveMessage {
@@ -39,6 +40,46 @@ const PROMPTS = [
   'Have we seen payment-api connection pool saturation before?',
   'Recommended steps for a SEV-1 payment-api outage',
 ];
+
+function activeThreadStorageKey(memberId?: string) {
+  return memberId ? `opsrelay_ask_active_thread_${memberId}` : 'opsrelay_ask_active_thread';
+}
+
+function persistActiveThreadId(memberId: string | undefined, threadId: string | null) {
+  const key = activeThreadStorageKey(memberId);
+  if (threadId) localStorage.setItem(key, threadId);
+  else localStorage.removeItem(key);
+}
+
+function restoreThreadFromHistory(
+  history: MemoryChatMessage[],
+  memberId: string | undefined,
+): { messages: LiveMessage[]; threadId: string | null } {
+  const built = buildChatThreads(history);
+  if (built.length === 0) return { messages: [], threadId: null };
+
+  const savedId = localStorage.getItem(activeThreadStorageKey(memberId));
+  const thread = (savedId ? built.find((t) => t.id === savedId) : undefined) ?? built[0];
+  return { messages: threadToMessages(thread), threadId: thread.id };
+}
+
+async function refreshSavedHistory(
+  memberId: string | undefined,
+  preferredThreadId?: string,
+): Promise<{ history: MemoryChatMessage[]; threadId: string | null; messages: LiveMessage[] }> {
+  const history = await apiService.getMemoryChats();
+  if (preferredThreadId) {
+    const built = buildChatThreads(history);
+    const thread = built.find((t) => t.id === preferredThreadId);
+    if (thread) {
+      persistActiveThreadId(memberId, thread.id);
+      return { history, threadId: thread.id, messages: threadToMessages(thread) };
+    }
+  }
+  const restored = restoreThreadFromHistory(history, memberId);
+  persistActiveThreadId(memberId, restored.threadId);
+  return { history, ...restored };
+}
 
 interface AgentConsoleProps {
   incidents: Incident[];
@@ -62,6 +103,7 @@ function threadToMessages(thread: ChatThread): LiveMessage[] {
         content: msg.text,
         mode: msg.agentMode,
         linkedIncidentId: msg.linkedIncidentId,
+        mcpCitations: msg.mcpCitations,
         similarIncidents: msg.matchedIncidents?.map((m) => ({
           id: m.id,
           title: m.title,
@@ -95,22 +137,30 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
 
   const threads = buildChatThreads(chatHistory);
 
-  const loadHistory = async () => {
-    try {
-      setChatHistory(await apiService.getMemoryChats());
-    } catch {
-      setChatHistory([]);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
   useEffect(() => {
+    let cancelled = false;
     setLoadingHistory(true);
-    setChatHistory([]);
-    setMessages([]);
-    setActiveThreadId(null);
-    void loadHistory();
+
+    void (async () => {
+      try {
+        const { history, messages: restoredMessages, threadId } = await refreshSavedHistory(user?.memberId);
+        if (cancelled) return;
+        setChatHistory(history);
+        setMessages(restoredMessages);
+        setActiveThreadId(threadId);
+      } catch {
+        if (cancelled) return;
+        setChatHistory([]);
+        setMessages([]);
+        setActiveThreadId(null);
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.memberId]);
 
   useEffect(() => {
@@ -120,6 +170,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   const startNewChat = () => {
     setMessages([]);
     setActiveThreadId(null);
+    persistActiveThreadId(user?.memberId, null);
     setError(null);
     setQuery('');
   };
@@ -127,6 +178,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   const selectThread = (thread: ChatThread) => {
     setMessages(threadToMessages(thread));
     setActiveThreadId(thread.id);
+    persistActiveThreadId(user?.memberId, thread.id);
     setError(null);
   };
 
@@ -149,7 +201,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
 
     try {
       if (agentMode === 'mcp') {
-        const result = await apiService.queryInvestigator(q, incidentId || undefined);
+        const result = await apiService.queryInvestigator(q, incidentId || undefined, saveChat);
         const assistantMsg: LiveMessage = {
           id: `live-assistant-${Date.now()}`,
           role: 'assistant',
@@ -159,6 +211,15 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
           linkedIncidentId: incidentId || undefined,
         };
         setMessages((prev) => [...prev, assistantMsg]);
+        if (saveChat) {
+          const history = await apiService.getMemoryChats();
+          setChatHistory(history);
+          if (result.savedUserMessageId) {
+            setActiveThreadId(result.savedUserMessageId);
+            persistActiveThreadId(user?.memberId, result.savedUserMessageId);
+          }
+          toast('Saved to chat history', 'success');
+        }
       } else {
         const agentResult = await apiService.runAgent(q, incidentId || undefined, saveChat) as AgentRunResult;
         const assistantMsg: LiveMessage = {
@@ -171,7 +232,12 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
         };
         setMessages((prev) => [...prev, assistantMsg]);
         if (saveChat) {
-          await loadHistory();
+          const history = await apiService.getMemoryChats();
+          setChatHistory(history);
+          if (agentResult.savedUserMessageId) {
+            setActiveThreadId(agentResult.savedUserMessageId);
+            persistActiveThreadId(user?.memberId, agentResult.savedUserMessageId);
+          }
           toast('Saved to chat history', 'success');
         }
       }
@@ -241,7 +307,6 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
                   type="checkbox"
                   checked={saveChat}
                   onChange={(e) => setSaveChat(e.target.checked)}
-                  disabled={agentMode === 'mcp'}
                   className="h-3.5 w-3.5 rounded border-ops-border text-brand"
                 />
                 <Database size={14} weight="regular" aria-hidden /> Save
@@ -398,7 +463,7 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
       <ConfirmDialog
         open={confirmClear}
         title="Clear all saved chats?"
-        message="This permanently deletes all Ask AI conversation history from CockroachDB."
+        message="This hides all Ask AI conversation history from your sidebar. Saved data remains in the database."
         confirmLabel="Clear history"
         destructive
         onConfirm={() => { setConfirmClear(false); handleClearHistory(); }}

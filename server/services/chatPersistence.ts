@@ -9,7 +9,7 @@ export async function saveAgentChatToMemory(
   incidentId: string | undefined,
   result: AgentResult,
   owner?: AuthUser,
-): Promise<void> {
+): Promise<{ userMessageId: string; assistantMessageId: string }> {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const ts = Date.now();
   const ownerMemberId = isAuthEnabled() && owner ? owner.memberId : undefined;
@@ -50,6 +50,48 @@ export async function saveAgentChatToMemory(
     `INSERT INTO memory_chats (id, data) VALUES ($1, $2::jsonb), ($3, $4::jsonb)`,
     [userMsg.id, JSON.stringify(userMsg), assistantMsg.id, JSON.stringify(assistantMsg)],
   );
+
+  return { userMessageId: userMsg.id, assistantMessageId: assistantMsg.id };
+}
+
+/** Persist one MCP investigator exchange to memory_chats. */
+export async function saveInvestigatorChatToMemory(
+  queryText: string,
+  incidentId: string | undefined,
+  answer: string,
+  citations: Array<Record<string, unknown>>,
+  owner?: AuthUser,
+): Promise<{ userMessageId: string; assistantMessageId: string }> {
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const ts = Date.now();
+  const ownerMemberId = isAuthEnabled() && owner ? owner.memberId : undefined;
+
+  const userMsg = {
+    id: `user-${ts}`,
+    sender: 'user' as const,
+    text: queryText.trim(),
+    timestamp: timeStr,
+    linkedIncidentId: incidentId,
+    ownerMemberId,
+  };
+
+  const assistantMsg = {
+    id: `msg-${ts}`,
+    sender: 'assistant' as const,
+    text: answer,
+    timestamp: timeStr,
+    agentMode: 'mcp',
+    linkedIncidentId: incidentId,
+    mcpCitations: citations,
+    ownerMemberId,
+  };
+
+  await query(
+    `INSERT INTO memory_chats (id, data) VALUES ($1, $2::jsonb), ($3, $4::jsonb)`,
+    [userMsg.id, JSON.stringify(userMsg), assistantMsg.id, JSON.stringify(assistantMsg)],
+  );
+
+  return { userMessageId: userMsg.id, assistantMessageId: assistantMsg.id };
 }
 
 export function chatBelongsToUser(

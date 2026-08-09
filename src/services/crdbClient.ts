@@ -140,6 +140,7 @@ export const crdbClient = {
       suggestedTasks: unknown[];
       mode: string;
       embeddingCount: number;
+      savedUserMessageId?: string;
     }>('/agent/run', {
       method: 'POST',
       body: JSON.stringify({ query, incidentId, saveChat }),
@@ -238,9 +239,12 @@ export const crdbClient = {
     ),
   getInvestigatorStatus: () =>
     request<import('../types/investigator').InvestigatorStatus>('/investigator/status'),
-  queryInvestigator: (question: string, incidentId?: string) =>
-    request<import('../types/investigator').InvestigationResult>('/investigator/query', {
-      method: 'POST',
-      body: JSON.stringify({ question, incidentId }),
-    }),
+  queryInvestigator: (question: string, incidentId?: string, saveChat = false) =>
+    request<import('../types/investigator').InvestigationResult & { savedUserMessageId?: string }>(
+      '/investigator/query',
+      {
+        method: 'POST',
+        body: JSON.stringify({ question, incidentId, saveChat }),
+      },
+    ),
 };

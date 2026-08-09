@@ -551,12 +551,12 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeTab === 'ask' && (
+          <div className={activeTab === 'ask' ? undefined : 'hidden'} aria-hidden={activeTab !== 'ask'}>
             <AgentConsole
               incidents={incidents}
               onInspectIncident={handleInspectIncidentById}
             />
-          )}
+          </div>
 
           {activeTab === 'tasks' && (
             <OpenTaskBoard

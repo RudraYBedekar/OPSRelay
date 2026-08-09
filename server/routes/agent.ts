@@ -44,15 +44,17 @@ agentRouter.post('/run', async (req, res, next) => {
 
     const result = await runAgent(queryText, incidentId, req.user);
 
+    let savedUserMessageId: string | undefined;
     if (saveChat !== false) {
       try {
-        await saveAgentChatToMemory(queryText, incidentId, result, req.user);
+        const saved = await saveAgentChatToMemory(queryText, incidentId, result, req.user);
+        savedUserMessageId = saved.userMessageId;
       } catch (err) {
         console.warn('Failed to save chat to memory_chats:', err instanceof Error ? err.message : err);
       }
     }
 
-    res.json(result);
+    res.json({ ...result, savedUserMessageId });
   } catch (err) {
     next(err);
   }

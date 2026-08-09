@@ -97,6 +97,7 @@ export interface MemoryChatMessage {
   agentMode?: string;
   linkedIncidentId?: string;
   ownerMemberId?: string;
+  mcpCitations?: import('./investigator').McpCitation[];
 }
 
 export interface ShiftHandoff {

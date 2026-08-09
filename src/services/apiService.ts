@@ -661,9 +661,9 @@ class ApiService {
     return crdbClient.getInvestigatorStatus();
   }
 
-  public async queryInvestigator(question: string, incidentId?: string) {
+  public async queryInvestigator(question: string, incidentId?: string, saveChat = false) {
     if (!USE_CRDB) throw new Error('MCP investigator requires CockroachDB');
-    return crdbClient.queryInvestigator(question, incidentId);
+    return crdbClient.queryInvestigator(question, incidentId, saveChat);
   }
 }
 
