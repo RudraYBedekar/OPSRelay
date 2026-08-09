@@ -12,7 +12,11 @@ export const memoryRouter = Router();
 memoryRouter.get('/', async (req, res, next) => {
   try {
     const rows = await query<{ data: { ownerMemberId?: string } }>(
-      'SELECT data FROM memory_chats WHERE hidden_at IS NULL ORDER BY created_at ASC',
+      `SELECT data FROM memory_chats
+       WHERE hidden_at IS NULL
+       ORDER BY created_at ASC,
+         CASE WHEN data->>'sender' = 'user' THEN 0 ELSE 1 END ASC,
+         id ASC`,
     );
     const memberId = req.user?.memberId;
     const chats = rows
@@ -75,16 +79,20 @@ memoryRouter.post('/query', async (req, res, next) => {
 
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const ownerMemberId = isAuthEnabled() && req.user ? req.user.memberId : undefined;
+    const ts = Date.now();
+    const threadId = `thread-${ts}`;
 
     const userMsg = {
-      id: `user-${Date.now()}`,
+      id: `${threadId}-user`,
+      threadId,
       sender: 'user',
       text: queryText,
       timestamp: timeStr,
       ownerMemberId,
     };
     const assistantMsg = {
-      id: `msg-${Date.now()}`,
+      id: `${threadId}-assistant`,
+      threadId,
       sender: 'assistant',
       text: result.answer,
       timestamp: timeStr,

@@ -12,10 +12,12 @@ export async function saveAgentChatToMemory(
 ): Promise<{ userMessageId: string; assistantMessageId: string }> {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const ts = Date.now();
+  const threadId = `thread-${ts}`;
   const ownerMemberId = isAuthEnabled() && owner ? owner.memberId : undefined;
 
   const userMsg = {
-    id: `user-${ts}`,
+    id: `${threadId}-user`,
+    threadId,
     sender: 'user' as const,
     text: queryText.trim(),
     timestamp: timeStr,
@@ -36,7 +38,8 @@ export async function saveAgentChatToMemory(
   }));
 
   const assistantMsg = {
-    id: `msg-${ts}`,
+    id: `${threadId}-assistant`,
+    threadId,
     sender: 'assistant' as const,
     text: result.answer,
     timestamp: timeStr,
@@ -64,10 +67,12 @@ export async function saveInvestigatorChatToMemory(
 ): Promise<{ userMessageId: string; assistantMessageId: string }> {
   const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const ts = Date.now();
+  const threadId = `thread-${ts}`;
   const ownerMemberId = isAuthEnabled() && owner ? owner.memberId : undefined;
 
   const userMsg = {
-    id: `user-${ts}`,
+    id: `${threadId}-user`,
+    threadId,
     sender: 'user' as const,
     text: queryText.trim(),
     timestamp: timeStr,
@@ -76,7 +81,8 @@ export async function saveInvestigatorChatToMemory(
   };
 
   const assistantMsg = {
-    id: `msg-${ts}`,
+    id: `${threadId}-assistant`,
+    threadId,
     sender: 'assistant' as const,
     text: answer,
     timestamp: timeStr,

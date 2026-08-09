@@ -1,13 +1,9 @@
 import React from 'react';
 import { ChatCircleDots, Trash, SidebarSimple } from '@phosphor-icons/react';
-import type { MemoryChatMessage } from '../../types/incident';
+import { buildChatThreads, type ChatThread } from '../../utils/chatThreads';
 
-export interface ChatThread {
-  id: string;
-  title: string;
-  timestamp: string;
-  messages: MemoryChatMessage[];
-}
+export type { ChatThread };
+export { buildChatThreads };
 
 interface ChatSidebarProps {
   threads: ChatThread[];
@@ -18,23 +14,6 @@ interface ChatSidebarProps {
   onSelectThread: (thread: ChatThread) => void;
   onClearHistory: () => void;
   usingCrdb: boolean;
-}
-
-export function buildChatThreads(chats: MemoryChatMessage[]): ChatThread[] {
-  const threads: ChatThread[] = [];
-  for (let i = 0; i < chats.length; i++) {
-    const msg = chats[i];
-    if (msg.sender !== 'user') continue;
-    const assistant = chats[i + 1]?.sender === 'assistant' ? chats[i + 1] : undefined;
-    threads.push({
-      id: msg.id,
-      title: msg.text.slice(0, 48) + (msg.text.length > 48 ? '…' : ''),
-      timestamp: msg.timestamp,
-      messages: assistant ? [msg, assistant] : [msg],
-    });
-    if (assistant) i++;
-  }
-  return threads.reverse();
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({

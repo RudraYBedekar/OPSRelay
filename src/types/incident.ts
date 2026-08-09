@@ -89,6 +89,7 @@ export interface ExtractionResult {
 
 export interface MemoryChatMessage {
   id: string;
+  threadId?: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;

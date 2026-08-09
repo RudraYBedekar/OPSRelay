@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CircleNotch, PaperPlaneTilt, Sparkle, Robot, User, Database } from '@phosphor-icons/react';
 import { ChatMarkdown } from './ChatMarkdown';
-import { ChatSidebar, buildChatThreads, type ChatThread } from './ChatSidebar';
+import { ChatSidebar, type ChatThread } from './ChatSidebar';
+import { buildChatThreads } from '../../utils/chatThreads';
 import { MemorySourceCard } from './MemorySourceCard';
 import { McpCitationCard } from './McpCitationCard';
 import type { McpCitation } from '../../types/investigator';
@@ -45,6 +46,35 @@ function activeThreadStorageKey(memberId?: string) {
   return memberId ? `opsrelay_ask_active_thread_${memberId}` : 'opsrelay_ask_active_thread';
 }
 
+function liveSessionStorageKey(memberId?: string) {
+  return memberId ? `opsrelay_ask_live_${memberId}` : 'opsrelay_ask_live';
+}
+
+function persistLiveSession(
+  memberId: string | undefined,
+  messages: LiveMessage[],
+  threadId: string | null,
+) {
+  const key = liveSessionStorageKey(memberId);
+  if (messages.length === 0) {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  sessionStorage.setItem(key, JSON.stringify({ messages, threadId }));
+}
+
+function readLiveSession(memberId: string | undefined): { messages: LiveMessage[]; threadId: string | null } | null {
+  const raw = sessionStorage.getItem(liveSessionStorageKey(memberId));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { messages?: LiveMessage[]; threadId?: string | null };
+    if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) return null;
+    return { messages: parsed.messages, threadId: parsed.threadId ?? null };
+  } catch {
+    return null;
+  }
+}
+
 function persistActiveThreadId(memberId: string | undefined, threadId: string | null) {
   const key = activeThreadStorageKey(memberId);
   if (threadId) localStorage.setItem(key, threadId);
@@ -61,24 +91,6 @@ function restoreThreadFromHistory(
   const savedId = localStorage.getItem(activeThreadStorageKey(memberId));
   const thread = (savedId ? built.find((t) => t.id === savedId) : undefined) ?? built[0];
   return { messages: threadToMessages(thread), threadId: thread.id };
-}
-
-async function refreshSavedHistory(
-  memberId: string | undefined,
-  preferredThreadId?: string,
-): Promise<{ history: MemoryChatMessage[]; threadId: string | null; messages: LiveMessage[] }> {
-  const history = await apiService.getMemoryChats();
-  if (preferredThreadId) {
-    const built = buildChatThreads(history);
-    const thread = built.find((t) => t.id === preferredThreadId);
-    if (thread) {
-      persistActiveThreadId(memberId, thread.id);
-      return { history, threadId: thread.id, messages: threadToMessages(thread) };
-    }
-  }
-  const restored = restoreThreadFromHistory(history, memberId);
-  persistActiveThreadId(memberId, restored.threadId);
-  return { history, ...restored };
 }
 
 interface AgentConsoleProps {
@@ -143,11 +155,23 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
 
     void (async () => {
       try {
-        const { history, messages: restoredMessages, threadId } = await refreshSavedHistory(user?.memberId);
+        const history = await apiService.getMemoryChats();
         if (cancelled) return;
+
+        const live = readLiveSession(user?.memberId);
+        const liveHasAnswer = live?.messages.some((m) => m.role === 'assistant') ?? false;
+        if (live && liveHasAnswer) {
+          setChatHistory(history);
+          setMessages(live.messages);
+          setActiveThreadId(live.threadId);
+          return;
+        }
+
+        const { messages: restoredMessages, threadId } = restoreThreadFromHistory(history, user?.memberId);
         setChatHistory(history);
         setMessages(restoredMessages);
         setActiveThreadId(threadId);
+        persistLiveSession(user?.memberId, restoredMessages, threadId);
       } catch {
         if (cancelled) return;
         setChatHistory([]);
@@ -164,6 +188,10 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
   }, [user?.memberId]);
 
   useEffect(() => {
+    persistLiveSession(user?.memberId, messages, activeThreadId);
+  }, [messages, activeThreadId, user?.memberId]);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 
@@ -171,14 +199,17 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
     setMessages([]);
     setActiveThreadId(null);
     persistActiveThreadId(user?.memberId, null);
+    persistLiveSession(user?.memberId, [], null);
     setError(null);
     setQuery('');
   };
 
   const selectThread = (thread: ChatThread) => {
-    setMessages(threadToMessages(thread));
+    const restored = threadToMessages(thread);
+    setMessages(restored);
     setActiveThreadId(thread.id);
     persistActiveThreadId(user?.memberId, thread.id);
+    persistLiveSession(user?.memberId, restored, thread.id);
     setError(null);
   };
 
@@ -193,7 +224,11 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
       linkedIncidentId: incidentId || undefined,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => {
+      const next = [...prev, userMsg];
+      persistLiveSession(user?.memberId, next, activeThreadId);
+      return next;
+    });
     setQuery('');
     setLoading(true);
     setError(null);
@@ -210,15 +245,21 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
           mcpCitations: result.citations,
           linkedIncidentId: incidentId || undefined,
         };
-        setMessages((prev) => [...prev, assistantMsg]);
+        setMessages((prev) => {
+          const next = [...prev, assistantMsg];
+          persistLiveSession(user?.memberId, next, result.savedUserMessageId ?? activeThreadId);
+          return next;
+        });
         if (saveChat) {
           const history = await apiService.getMemoryChats();
           setChatHistory(history);
           if (result.savedUserMessageId) {
             setActiveThreadId(result.savedUserMessageId);
             persistActiveThreadId(user?.memberId, result.savedUserMessageId);
+            toast('Saved to chat history', 'success');
+          } else {
+            toast('Answer received but could not save to history', 'error');
           }
-          toast('Saved to chat history', 'success');
         }
       } else {
         const agentResult = await apiService.runAgent(q, incidentId || undefined, saveChat) as AgentRunResult;
@@ -230,15 +271,21 @@ export const AgentConsole: React.FC<AgentConsoleProps> = ({ incidents, onInspect
           similarIncidents: agentResult.similarIncidents,
           linkedIncidentId: incidentId || undefined,
         };
-        setMessages((prev) => [...prev, assistantMsg]);
+        setMessages((prev) => {
+          const next = [...prev, assistantMsg];
+          persistLiveSession(user?.memberId, next, agentResult.savedUserMessageId ?? activeThreadId);
+          return next;
+        });
         if (saveChat) {
           const history = await apiService.getMemoryChats();
           setChatHistory(history);
           if (agentResult.savedUserMessageId) {
             setActiveThreadId(agentResult.savedUserMessageId);
             persistActiveThreadId(user?.memberId, agentResult.savedUserMessageId);
+            toast('Saved to chat history', 'success');
+          } else {
+            toast('Answer received but could not save to history', 'error');
           }
-          toast('Saved to chat history', 'success');
         }
       }
     } catch (e) {
