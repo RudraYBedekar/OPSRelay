@@ -601,6 +601,11 @@ class ApiService {
     return crdbClient.listTeamChats();
   }
 
+  public async getTeamChatUnreadCount() {
+    if (!USE_CRDB) return { totalUnread: 0 };
+    return crdbClient.getTeamChatUnreadCount();
+  }
+
   public async listTeamChatMembers() {
     if (!USE_CRDB) return [];
     return crdbClient.listTeamChatMembers();

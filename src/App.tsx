@@ -31,6 +31,7 @@ import type {
 import { apiService } from './services/apiService';
 import type { AnalysisRun } from './types/alertFatigue';
 import { deriveLiveMetrics, countOpenIncidents, countResolvedIncidents, buildLiveHandoffSummaries } from './utils/dashboardMetrics';
+import { useTeamChatUnread } from './hooks/useTeamChatUnread';
 
 const PAGE: Record<NavTab, { title: string; description: string }> = {
   dashboard: {
@@ -63,6 +64,10 @@ export const App: React.FC = () => {
   const { user, loading: authLoading, requiresAuth, logout } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const { unreadCount: unreadChatCount, refreshUnread: refreshChatUnread } = useTeamChatUnread(
+    user?.memberId,
+    activeTab,
+  );
   const [isOpenMobile, setIsOpenMobile] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
@@ -407,6 +412,7 @@ export const App: React.FC = () => {
       onTabChange={goTab}
       openTasksCount={tasks.filter((t) => t.status !== 'COMPLETED').length}
       activeSevCount={incidents.filter((i) => (i.severity === 'SEV-0' || i.severity === 'SEV-1') && i.status !== 'RESOLVED').length}
+      unreadChatCount={unreadChatCount}
       isOpenMobile={isOpenMobile}
       setIsOpenMobile={setIsOpenMobile}
       sidebarCollapsed={sidebarCollapsed}
@@ -544,6 +550,7 @@ export const App: React.FC = () => {
             <TeamChatPanel
               memberId={user?.memberId}
               userName={displayName}
+              onUnreadChange={refreshChatUnread}
             />
           )}
         </>

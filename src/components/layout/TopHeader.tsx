@@ -4,6 +4,7 @@ import {
   Database,
   SignOut,
   List,
+  X,
   Plus,
   MagnifyingGlass,
   ShareNetwork,
@@ -12,7 +13,8 @@ import { UserAvatar } from '../common/UserAvatar';
 import { ICON_SIZE } from '../common/iconTypes';
 
 interface TopHeaderProps {
-  onOpenMobileSidebar: () => void;
+  onToggleMobileSidebar: () => void;
+  isMobileSidebarOpen?: boolean;
   onOpenIntake: () => void;
   onSearchQuery?: (query: string) => void;
   dbConnected?: boolean | null;
@@ -26,7 +28,8 @@ interface TopHeaderProps {
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
-  onOpenMobileSidebar,
+  onToggleMobileSidebar,
+  isMobileSidebarOpen = false,
   onOpenIntake,
   onSearchQuery,
   dbConnected,
@@ -55,11 +58,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       <div className="flex h-14 items-center gap-3 px-4 md:px-6">
         <button
           type="button"
-          onClick={onOpenMobileSidebar}
-          className="ops-icon-btn md:hidden"
-          aria-label="Open navigation"
+          onClick={onToggleMobileSidebar}
+          className="ops-icon-btn md:hidden relative z-[60]"
+          aria-label={isMobileSidebarOpen ? 'Close navigation' : 'Open navigation'}
+          aria-expanded={isMobileSidebarOpen}
         >
-          <List size={ICON_SIZE.page} aria-hidden />
+          {isMobileSidebarOpen ? (
+            <X size={ICON_SIZE.page} aria-hidden />
+          ) : (
+            <List size={ICON_SIZE.page} aria-hidden />
+          )}
         </button>
 
         <div className="hidden md:flex items-center gap-2 shrink-0 pr-2 border-r border-ops-border mr-1">

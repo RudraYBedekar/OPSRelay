@@ -41,6 +41,7 @@ export interface TeamChatSummary {
   lastMessage?: string;
   lastMessageAt?: string;
   unreadHint?: boolean;
+  unreadCount?: number;
   activeGuest?: TeamChatGuest;
   updatedAt: string;
 }
@@ -133,6 +134,51 @@ async function canAccessChat(
   return guest?.guestMemberId === memberId;
 }
 
+async function countUnreadForChat(chatId: string, memberId: string): Promise<number> {
+  const row = await queryOne<{ n: number }>(
+    `SELECT count(*)::int AS n
+     FROM team_chat_messages m
+     LEFT JOIN team_chat_read_cursors r
+       ON r.chat_id = m.chat_id AND r.member_id = $2
+     WHERE m.chat_id = $1
+       AND m.sender_member_id != $2
+       AND m.message_type != 'system'
+       AND m.created_at > COALESCE(r.last_read_at, '1970-01-01'::timestamptz)`,
+    [chatId, memberId],
+  );
+  return row?.n ?? 0;
+}
+
+export async function markChatRead(chatId: string, memberId: string): Promise<void> {
+  await query(
+    `INSERT INTO team_chat_read_cursors (chat_id, member_id, last_read_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (chat_id, member_id)
+     DO UPDATE SET last_read_at = now()`,
+    [chatId, memberId],
+  );
+}
+
+export async function getTotalUnreadCount(memberId: string): Promise<number> {
+  await expireStaleGuests();
+  const rows = await query<{ id: string }>(
+    `SELECT c.id FROM team_chats c
+     WHERE c.member_a_id = $1 OR c.member_b_id = $1
+        OR EXISTS (
+          SELECT 1 FROM team_chat_guests g
+          WHERE g.chat_id = c.id AND g.guest_member_id = $1
+            AND g.status = 'active' AND g.expires_at > now()
+        )`,
+    [memberId],
+  );
+
+  let total = 0;
+  for (const row of rows) {
+    total += await countUnreadForChat(row.id, memberId);
+  }
+  return total;
+}
+
 async function insertSystemMessage(chatId: string, text: string): Promise<void> {
   await query(
     `INSERT INTO team_chat_messages (chat_id, sender_member_id, sender_name, text, message_type)
@@ -222,11 +268,15 @@ export async function listChatsForUser(user: AuthUser): Promise<TeamChatSummary[
       [row.id],
     );
 
+    const unreadCount = await countUnreadForChat(row.id, user.memberId);
+
     summaries.push({
       id: row.id,
       otherMember: other,
       lastMessage: lastMsg?.text,
       lastMessageAt: lastMsg?.created_at,
+      unreadCount,
+      unreadHint: unreadCount > 0,
       activeGuest: await getActiveGuest(row.id),
       updatedAt: row.updated_at,
     });
@@ -327,6 +377,8 @@ export async function getChatDetail(chatId: string, memberId: string): Promise<T
     participants.push({ memberId: guest.guestMemberId, name: guest.guestName });
   }
 
+  await markChatRead(chatId, memberId);
+
   return {
     id: chat.id,
     participants,
@@ -381,6 +433,8 @@ export async function sendChatMessage(
   );
 
   await query('UPDATE team_chats SET updated_at = now() WHERE id = $1', [chatId]);
+
+  await markChatRead(chatId, user.memberId);
 
   const mapped = mapMessageRow(row!);
   await archiveTeamChatEvent({

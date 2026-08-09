@@ -48,9 +48,10 @@ function formatDurationLabel(minutes: number): string {
 interface TeamChatPanelProps {
   memberId?: string;
   userName?: string;
+  onUnreadChange?: () => void;
 }
 
-export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName }) => {
+export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName, onUnreadChange }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [chats, setChats] = useState<TeamChatSummary[]>([]);
@@ -78,24 +79,32 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
       ]);
       setChats(chatList);
       setMembers(memberList);
+      onUnreadChange?.();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Failed to load chats', 'error');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, onUnreadChange]);
 
   const loadChatDetail = useCallback(async (chatId: string) => {
     try {
       const detail = await apiService.getTeamChat(chatId);
       setActiveChat(detail);
       setGuestRemainingMs(detail.activeGuest?.remainingMs ?? 0);
+      onUnreadChange?.();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Failed to load chat', 'error');
     }
-  }, [toast]);
+  }, [toast, onUnreadChange]);
 
   useEffect(() => { void loadChats(); }, [loadChats]);
+
+  useEffect(() => {
+    if (!memberId) return;
+    const id = window.setInterval(() => { void loadChats(); }, 8000);
+    return () => window.clearInterval(id);
+  }, [memberId, loadChats]);
 
   useEffect(() => {
     if (!selectedChatId) return;
@@ -142,6 +151,7 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
       setMessageText('');
       await loadChatDetail(selectedChatId);
       await loadChats();
+      toast('Message sent', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Send failed', 'error');
     } finally {
@@ -353,11 +363,18 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({ memberId, userName
                       }}
                       className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${
                         selectedChatId === chat.id ? 'bg-brand-light border border-brand-muted' : 'hover:bg-slate-50'
-                      }`}
+                      } ${chat.unreadCount ? 'border-l-2 border-l-brand' : ''}`}
                     >
-                      <p className="text-sm font-medium text-ops-text truncate">
-                        {chat.otherMember.name}
-                      </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-sm truncate ${chat.unreadCount ? 'font-bold text-ops-text' : 'font-medium text-ops-text'}`}>
+                          {chat.otherMember.name}
+                        </p>
+                        {chat.unreadCount ? (
+                          <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-bold text-white">
+                            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="text-[10px] font-mono text-ops-muted">{chat.otherMember.memberId}</p>
                       {chat.lastMessage && (
                         <p className="mt-1 text-xs text-ops-subtext truncate">{chat.lastMessage}</p>

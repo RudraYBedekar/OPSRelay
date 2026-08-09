@@ -10,6 +10,8 @@ import {
   deleteChat,
   inviteGuestToChat,
   removeGuestFromChat,
+  markChatRead,
+  getTotalUnreadCount,
   type GuestDuration,
 } from '../services/teamChatService.js';
 import { isAuthEnabled } from '../config/auth.js';
@@ -24,6 +26,37 @@ function requireUser(req: { user?: AuthUser }): AuthUser {
   }
   return req.user;
 }
+
+teamChatRouter.get('/unread-count', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    res.json({ totalUnread: await getTotalUnreadCount(user.memberId) });
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    next(err);
+  }
+});
+
+teamChatRouter.post('/:chatId/read', async (req, res, next) => {
+  try {
+    const user = requireUser(req);
+    await getChatDetail(req.params.chatId, user.memberId);
+    res.json({ read: true });
+  } catch (err) {
+    if ((err as { status?: number }).status === 401) {
+      res.status(401).json({ error: (err as Error).message });
+      return;
+    }
+    if (err instanceof Error && err.message.includes('not found')) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
+});
 
 teamChatRouter.get('/members', async (req, res, next) => {
   try {

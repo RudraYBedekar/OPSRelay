@@ -8,6 +8,7 @@ interface AppShellProps {
   onTabChange: (tab: NavTab) => void;
   openTasksCount: number;
   activeSevCount: number;
+  unreadChatCount?: number;
   isOpenMobile: boolean;
   setIsOpenMobile: (open: boolean) => void;
   sidebarCollapsed: boolean;
@@ -30,6 +31,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onTabChange,
   openTasksCount,
   activeSevCount,
+  unreadChatCount = 0,
   isOpenMobile,
   setIsOpenMobile,
   sidebarCollapsed,
@@ -52,6 +54,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       onTabChange={onTabChange}
       openTasksCount={openTasksCount}
       activeSevCount={activeSevCount}
+      unreadChatCount={unreadChatCount}
       isOpenMobile={isOpenMobile}
       setIsOpenMobile={setIsOpenMobile}
       collapsed={sidebarCollapsed}
@@ -59,7 +62,8 @@ export const AppShell: React.FC<AppShellProps> = ({
     />
     <div className="flex min-w-0 flex-1 flex-col">
       <TopHeader
-        onOpenMobileSidebar={() => setIsOpenMobile(true)}
+        onToggleMobileSidebar={() => setIsOpenMobile(!isOpenMobile)}
+        isMobileSidebarOpen={isOpenMobile}
         onOpenIntake={onOpenIntake}
         onSearchQuery={onSearchQuery}
         dbConnected={dbConnected}

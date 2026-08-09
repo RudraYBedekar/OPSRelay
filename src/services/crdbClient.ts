@@ -194,6 +194,8 @@ export const crdbClient = {
     request<import('../types/commander').WarRoomState>(`/commander/${incidentId}/resolve`, { method: 'POST' }),
   listTeamChats: () =>
     request<import('../types/teamChat').TeamChatSummary[]>('/team-chat'),
+  getTeamChatUnreadCount: () =>
+    request<{ totalUnread: number }>('/team-chat/unread-count'),
   listTeamChatMembers: () =>
     request<import('../types/teamChat').TeamChatMember[]>('/team-chat/members'),
   createTeamChat: (memberId: string) =>

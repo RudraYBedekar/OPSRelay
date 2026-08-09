@@ -46,6 +46,8 @@ export interface TeamChatSummary {
   otherMember: TeamChatMember;
   lastMessage?: string;
   lastMessageAt?: string;
+  unreadCount?: number;
+  unreadHint?: boolean;
   activeGuest?: TeamChatGuest;
   updatedAt: string;
 }

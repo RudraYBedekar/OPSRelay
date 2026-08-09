@@ -29,6 +29,7 @@ interface SidebarProps {
   onTabChange: (tab: NavTab) => void;
   openTasksCount: number;
   activeSevCount: number;
+  unreadChatCount?: number;
   isOpenMobile: boolean;
   setIsOpenMobile: (open: boolean) => void;
   collapsed?: boolean;
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   openTasksCount,
   activeSevCount,
+  unreadChatCount = 0,
   isOpenMobile,
   setIsOpenMobile,
   collapsed = false,
@@ -55,13 +57,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     )}
 
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-ops-border bg-ops-sidebar transition-all duration-150 md:static md:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-ops-border bg-ops-sidebar transition-all duration-150 md:static md:translate-x-0 md:pointer-events-auto ${
         collapsed ? 'w-[3.75rem]' : 'w-56'
-      } ${isOpenMobile ? 'translate-x-0' : '-translate-x-full'}`}
+      } ${isOpenMobile ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'}`}
     >
-      <div className={`flex h-14 items-center border-b border-ops-border ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
+      <div className={`flex h-14 w-full shrink-0 items-center border-b border-ops-border ${collapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
         {!collapsed && (
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand text-white">
               <SquaresFour size={18} weight="bold" aria-hidden />
             </div>
@@ -79,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           type="button"
           onClick={() => setIsOpenMobile(false)}
-          className="ops-icon-btn ml-auto md:hidden"
+          className="ops-icon-btn shrink-0 md:hidden relative z-10"
           aria-label="Close menu"
         >
           <X size={ICON_SIZE.button} aria-hidden />
@@ -104,7 +106,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className="flex-1 space-y-0.5 px-2 py-3" aria-label="Main navigation">
         {NAV.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id;
-          const badge = id === 'tasks' && openTasksCount > 0 ? openTasksCount : null;
+          const badge =
+            id === 'tasks' && openTasksCount > 0
+              ? openTasksCount
+              : id === 'chat' && unreadChatCount > 0
+                ? unreadChatCount
+                : null;
           return (
             <button
               key={id}
@@ -127,11 +134,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <span className={`flex-1 text-sm ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
                   {badge != null && (
-                    <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-md bg-amber-100 px-1 text-[10px] font-semibold text-amber-900">
-                      {badge}
+                    <span className={`flex h-5 min-w-[1.25rem] items-center justify-center rounded-md px-1 text-[10px] font-semibold ${
+                      id === 'chat' ? 'bg-brand text-white' : 'bg-amber-100 text-amber-900'
+                    }`}>
+                      {badge > 99 ? '99+' : badge}
                     </span>
                   )}
                 </>
+              )}
+              {collapsed && badge != null && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                  {badge > 9 ? '9+' : badge}
+                </span>
               )}
             </button>
           );
