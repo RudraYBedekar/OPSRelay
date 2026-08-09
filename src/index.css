@@ -62,6 +62,22 @@ body {
   @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-[rgba(1,118,211,0.15)];
 }
 
+.ops-search-field {
+  @apply flex w-full min-w-0 items-center gap-2 rounded-md border border-ops-border bg-white px-3 py-2 text-sm;
+  min-height: 2.25rem;
+  @apply focus-within:border-brand focus-within:outline-none focus-within:ring-2 focus-within:ring-[rgba(1,118,211,0.15)];
+}
+
+.ops-search-field-input {
+  @apply min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-ops-text placeholder:text-ops-muted;
+  @apply focus:outline-none focus:ring-0;
+}
+
+.ops-search-field-input::-webkit-search-decoration,
+.ops-search-field-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
 .ops-btn-primary {
   @apply inline-flex items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white;
   min-height: 2.25rem;

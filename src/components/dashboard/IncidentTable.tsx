@@ -5,7 +5,8 @@ import { StatusBadge } from '../common/StatusBadge';
 import { EmptyState } from '../common/EmptyState';
 import { IncidentMobileCard } from './IncidentMobileCard';
 import { timeAgo } from '../../utils/formatters';
-import { CaretRight, CaretUp, CaretDown, MagnifyingGlass, Funnel, WarningCircle } from '@phosphor-icons/react';
+import { CaretRight, CaretUp, CaretDown, Funnel, WarningCircle } from '@phosphor-icons/react';
+import { SearchInput } from '../common/SearchInput';
 
 type SortKey = 'title' | 'severity' | 'service' | 'status' | 'updated' | 'owner';
 type SortDir = 'asc' | 'desc';
@@ -154,14 +155,14 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
           {isRefreshing && <span className="ml-2 text-xs font-normal text-ops-muted">Refreshing…</span>}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[10rem] sm:max-w-[14rem]">
-            <MagnifyingGlass size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ops-muted" aria-hidden />
-            <input
-              type="search"
+          <div className="flex-1 min-w-[10rem] sm:max-w-[14rem]">
+            <SearchInput
+              iconSize={14}
               value={localSearch}
               onChange={(e) => { setLocalSearch(e.target.value); setPage(0); }}
               placeholder="Filter incidents…"
-              className="ops-input py-1.5 pl-8 text-xs"
+              wrapperClassName="py-1.5"
+              className="text-xs"
               aria-label="Filter incidents"
             />
           </div>

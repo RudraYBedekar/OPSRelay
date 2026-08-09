@@ -4,10 +4,10 @@ import {
   Database,
   SignOut,
   Plus,
-  MagnifyingGlass,
   ShareNetwork,
 } from '@phosphor-icons/react';
 import { UserAvatar } from '../common/UserAvatar';
+import { SearchInput } from '../common/SearchInput';
 
 interface TopHeaderProps {
   onOpenIntake: () => void;
@@ -48,7 +48,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 border-b border-ops-border bg-white">
-      <div className="flex h-14 items-center gap-3 px-4 md:px-6">
+      <div className="flex h-14 w-full items-center gap-3 px-4 md:px-6">
         <div className="hidden md:flex items-center gap-2 shrink-0 pr-2 border-r border-ops-border mr-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand text-white">
             <SquaresFour size={18} weight="bold" aria-hidden />
@@ -56,22 +56,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <span className="text-sm font-semibold text-ops-text">OpsRelay</span>
         </div>
 
-        <div className="relative flex-1 max-w-xl">
-          <MagnifyingGlass
-            size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ops-muted"
-            aria-hidden
-          />
-          <input
-            type="search"
+        <div className="flex-1 max-w-xl min-w-0">
+          <SearchInput
             placeholder="Search incidents by title, ID, service, or owner…"
             onChange={(e) => onSearchQuery?.(e.target.value)}
-            className="ops-input h-9 pl-9 text-sm bg-ops-bg"
+            wrapperClassName="h-9 bg-ops-bg"
+            className="text-sm"
             aria-label="Global search"
           />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           {usingCrdb && (
             <span
               title={dbConnected ? 'Database connected' : 'Database offline'}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Database, List, MagnifyingGlass, Plus } from '@phosphor-icons/react';
+import { Database, List, Plus } from '@phosphor-icons/react';
 import { ICON_SIZE } from '../common/iconTypes';
+import { SearchInput } from '../common/SearchInput';
 
 interface HeaderProps {
   onOpenMobileSidebar: () => void;
@@ -27,18 +28,11 @@ export const Header: React.FC<HeaderProps> = ({
         <List size={ICON_SIZE.page} weight="regular" aria-hidden />
       </button>
 
-      <div className="relative flex-1 max-w-md hidden sm:block">
-        <MagnifyingGlass
-          size={16}
-          weight="regular"
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-ops-muted pointer-events-none"
-          aria-hidden
-        />
-        <input
-          type="search"
+      <div className="hidden sm:block flex-1 max-w-md min-w-0">
+        <SearchInput
           placeholder="Search incidents by ID, service, or title…"
           onChange={(e) => onSearchQuery?.(e.target.value)}
-          className="ops-input pl-9 py-2 bg-ops-bg/50"
+          wrapperClassName="bg-ops-bg/50"
         />
       </div>
 
