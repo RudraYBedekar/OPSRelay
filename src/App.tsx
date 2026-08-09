@@ -69,7 +69,6 @@ export const App: React.FC = () => {
     user?.memberId,
     activeTab,
   );
-  const [isOpenMobile, setIsOpenMobile] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [dashboardSeverityFilter, setDashboardSeverityFilter] = useState('ALL');
@@ -437,8 +436,6 @@ export const App: React.FC = () => {
       openTasksCount={countOpenTasks(tasks)}
       activeSevCount={incidents.filter((i) => (i.severity === 'SEV-0' || i.severity === 'SEV-1') && i.status !== 'RESOLVED').length}
       unreadChatCount={unreadChatCount}
-      isOpenMobile={isOpenMobile}
-      setIsOpenMobile={setIsOpenMobile}
       sidebarCollapsed={sidebarCollapsed}
       onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
       onOpenIntake={() => goTab('intake')}

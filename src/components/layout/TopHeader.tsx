@@ -8,7 +8,6 @@ import {
   ShareNetwork,
 } from '@phosphor-icons/react';
 import { UserAvatar } from '../common/UserAvatar';
-import { ICON_SIZE } from '../common/iconTypes';
 
 interface TopHeaderProps {
   onOpenIntake: () => void;

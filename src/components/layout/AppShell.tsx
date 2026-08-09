@@ -9,8 +9,6 @@ interface AppShellProps {
   openTasksCount: number;
   activeSevCount: number;
   unreadChatCount?: number;
-  isOpenMobile: boolean;
-  setIsOpenMobile: (open: boolean) => void;
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
   onOpenIntake: () => void;
@@ -32,8 +30,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   openTasksCount,
   activeSevCount,
   unreadChatCount = 0,
-  isOpenMobile,
-  setIsOpenMobile,
   sidebarCollapsed,
   onToggleSidebar,
   onOpenIntake,
@@ -55,8 +51,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       openTasksCount={openTasksCount}
       activeSevCount={activeSevCount}
       unreadChatCount={unreadChatCount}
-      isOpenMobile={isOpenMobile}
-      setIsOpenMobile={setIsOpenMobile}
       collapsed={sidebarCollapsed}
       onToggleCollapse={onToggleSidebar}
     />

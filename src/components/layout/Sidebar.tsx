@@ -29,8 +29,6 @@ interface SidebarProps {
   openTasksCount: number;
   activeSevCount: number;
   unreadChatCount?: number;
-  isOpenMobile: boolean;
-  setIsOpenMobile: (open: boolean) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -41,8 +39,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openTasksCount,
   activeSevCount,
   unreadChatCount = 0,
-  isOpenMobile,
-  setIsOpenMobile,
   collapsed = false,
   onToggleCollapse,
 }) => (
@@ -129,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={id}
               type="button"
               title={collapsed ? label : undefined}
-              onClick={() => { onTabChange(id); setIsOpenMobile(false); }}
+              onClick={() => onTabChange(id)}
               className={`relative flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors duration-150 min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(1,118,211,0.25)] ${
                 active
                   ? 'bg-brand-light text-brand before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-brand'
