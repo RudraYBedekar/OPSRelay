@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Pulse, Lock, CircleNotch, WarningCircle } from '@phosphor-icons/react';
+import { Lock, CircleNotch, WarningCircle } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
+import { AuthBrandMark } from './AuthBrandMark';
 
 interface LoginPageProps {
   onSwitchToRegister?: () => void;
@@ -29,13 +30,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSwitchToRegister }) => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-ops-bg px-4 py-10">
       <div className="ops-card w-full max-w-md p-6 md:p-8 shadow-lg">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-white">
-            <Pulse size={24} weight="bold" aria-hidden />
-          </div>
-          <h1 className="text-xl font-semibold text-ops-text">OpsRelay Dashboard</h1>
-          <p className="mt-1 text-sm text-ops-subtext">Sign in with email or user ID</p>
-        </div>
+        <AuthBrandMark title="Sign in" subtitle="Use your email or user ID" />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

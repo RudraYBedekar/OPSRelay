@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Pulse, UserPlus, CircleNotch, WarningCircle, Eye, EyeSlash, ShieldCheck } from '@phosphor-icons/react';
+import { UserPlus, CircleNotch, WarningCircle, Eye, EyeSlash, ShieldCheck } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
+import { AuthBrandMark } from './AuthBrandMark';
 import {
   checkPasswordStrength,
   isValidEmail,
@@ -64,15 +65,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
   return (
     <div className="flex min-h-screen items-center justify-center bg-ops-bg px-4 py-10">
       <div className="ops-card w-full max-w-lg p-6 md:p-8 shadow-lg">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-white">
-            <Pulse size={24} weight="bold" aria-hidden />
-          </div>
-          <h1 className="text-xl font-semibold text-ops-text">Create your account</h1>
-          <p className="mt-1 text-sm text-ops-subtext">
-            Credentials are stored in an isolated SecureData database
-          </p>
-        </div>
+        <AuthBrandMark
+          title="Create your account"
+          subtitle="Credentials are stored in an isolated SecureData database"
+        />
 
         <div className="mb-5 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
           <ShieldCheck size={16} weight="regular" className="mt-0.5 shrink-0" aria-hidden />
