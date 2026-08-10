@@ -9,6 +9,8 @@ Built with **React**, **TypeScript**, **Tailwind CSS**, **CockroachDB**, and **A
 > **Configuration:** See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for environment variables.  
 > **AI setup guide:** See [docs/BEDROCK_VECTOR_SETUP.md](docs/BEDROCK_VECTOR_SETUP.md) for full Bedrock + vector indexing setup from scratch.  
 > **Architecture:** See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for CockroachDB, AWS Bedrock, and agent interaction diagrams.
+>
+> **Video demo:** [Watch the OpsRelay hackathon demo on YouTube](https://www.youtube.com/watch?v=OtpExG0oD60).
 
 ![OpsRelay architecture](docs/images/opsrelay-architecture.png)
 
