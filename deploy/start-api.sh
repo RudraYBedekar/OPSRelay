@@ -8,7 +8,7 @@ APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$APP_ROOT"
 
 if [ ! -f .env ]; then
-  echo "❌ .env not found. Copy deploy/env.production.example to .env and edit secrets."
+  echo "❌ .env not found. Create .env from docs/CONFIGURATION.md"
   exit 1
 fi
 

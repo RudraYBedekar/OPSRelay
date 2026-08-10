@@ -275,8 +275,9 @@ All EC2 scripts live in `deploy/`:
 | `setup-nginx.sh` | Fix/install nginx |
 | `start-api.sh` | Restart PM2 API |
 | `health-check.sh` | Verify everything works |
-| `env.production.example` | EC2 `.env` template |
 | `iam-bedrock-policy.json` | IAM policy JSON |
+
+Environment variables: [CONFIGURATION.md](CONFIGURATION.md)
 
 See [deploy/README.md](../deploy/README.md) for details.
 

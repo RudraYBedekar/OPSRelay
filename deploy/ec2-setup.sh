@@ -2,7 +2,7 @@
 # Full EC2 bootstrap — run once after cloning repo on Ubuntu 22.04
 # Usage (on EC2):
 #   cd ~/OPSRELAYDashboard
-#   cp deploy/env.production.example .env && nano .env
+#   nano .env   # see docs/CONFIGURATION.md
 #   bash deploy/ec2-setup.sh
 set -euo pipefail
 
@@ -17,13 +17,8 @@ echo "Project: $APP_ROOT"
 bash "$SCRIPT_DIR/install-deps.sh"
 
 if [ ! -f .env ]; then
-  if [ -f "$SCRIPT_DIR/env.production.example" ]; then
-    cp "$SCRIPT_DIR/env.production.example" .env
-  elif [ -f .env.example ]; then
-    cp .env.example .env
-  fi
   echo ""
-  echo "⚠️  Created .env — EDIT IT NOW with your secrets:"
+  echo "⚠️  .env not found — create it from docs/CONFIGURATION.md:"
   echo "   nano .env"
   echo ""
   echo "Generate secrets:"

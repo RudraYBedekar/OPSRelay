@@ -19,7 +19,7 @@ cockroach start-single-node --insecure --listen-addr=localhost:26257
 In a second terminal:
 
 ```bash
-cp .env.example .env
+# Create .env from docs/CONFIGURATION.md, then:
 npm install
 npm run db:seed      # creates schema + loads sample incidents
 npm run dev:all      # starts API (3001) + Vite frontend (5173)
@@ -78,7 +78,7 @@ MCP lets Cursor's AI agent run SQL, inspect schemas, and manage your CockroachDB
 2. Go to your cluster → **Connect** → select **MCP**
 3. Choose **Cursor** and click **Add to Cursor**
 
-   Or manually create `.cursor/mcp.json` (copy from `.cursor/mcp.json.example`):
+   Or manually create `.cursor/mcp.json`:
 
 ```json
 {

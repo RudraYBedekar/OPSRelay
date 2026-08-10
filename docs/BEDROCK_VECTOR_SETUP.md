@@ -94,10 +94,11 @@ npm run db:seed
 
 ## Part 3 — Configure Environment
 
-Copy and edit `.env`:
+Create `.env` in the project root using [CONFIGURATION.md](CONFIGURATION.md):
 
 ```bash
-cp .env.example .env
+# Create and edit .env with your secrets (never commit this file)
+nano .env
 ```
 
 Add your values:

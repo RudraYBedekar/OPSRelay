@@ -1,6 +1,6 @@
 /**
  * HTTP client for OpsRelay CockroachDB backend.
- * Used when VITE_USE_CRDB=true (see .env.example).
+ * Used when VITE_USE_CRDB=true (see docs/CONFIGURATION.md).
  */
 
 import { getAuthToken } from './authStorage';

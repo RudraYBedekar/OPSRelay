@@ -6,8 +6,7 @@ All scripts run **on your Ubuntu EC2 instance** from the project root.
 
 ```bash
 cd ~/OPSRELAYDashboard
-cp deploy/env.production.example .env
-nano .env                    # add DATABASE_URL, JWT secrets, etc.
+nano .env                    # create from docs/CONFIGURATION.md
 bash deploy/ec2-setup.sh     # installs everything
 ```
 
@@ -27,8 +26,9 @@ Open: `http://<EC2_PUBLIC_IP>/`
 | `health-check.sh` | Verify API + frontend + nginx |
 | `nginx-opsrelay.conf` | Nginx template (`__APP_ROOT__` replaced by script) |
 | `pm2.ecosystem.cjs` | PM2 process config |
-| `env.production.example` | Production `.env` template |
 | `iam-bedrock-policy.json` | IAM policy for EC2 Bedrock role |
+
+Environment variables: [docs/CONFIGURATION.md](../docs/CONFIGURATION.md)
 
 ---
 

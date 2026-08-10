@@ -1,9 +1,12 @@
 # OpsRelay Dashboard
 
-OpsRelay is an **AI incident-response and shift-handoff dashboard** for operations teams. It helps engineers capture messy incident notes, turn them into structured data, search past incidents, and track open tasks — all in one dark-themed operations UI.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+OpsRelay is an **AI incident-response and shift-handoff dashboard** for operations teams. It helps engineers capture messy incident notes, turn them into structured data, search past incidents, and track open tasks — all in one operations UI.
 
 Built with **React**, **TypeScript**, **Tailwind CSS**, **CockroachDB**, and **AWS Bedrock**.
 
+> **Configuration:** See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for environment variables.  
 > **AI setup guide:** See [docs/BEDROCK_VECTOR_SETUP.md](docs/BEDROCK_VECTOR_SETUP.md) for full Bedrock + vector indexing setup from scratch.  
 > **Architecture:** See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for CockroachDB, AWS Bedrock, and agent interaction diagrams.
 
@@ -133,13 +136,7 @@ npm install
 
 ### 2. Configure environment
 
-Copy the example env file and add your CockroachDB connection string:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
+Create a `.env` file in the project root using [docs/CONFIGURATION.md](docs/CONFIGURATION.md). At minimum set:
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@CLUSTER.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full
@@ -262,4 +259,4 @@ ALLOW_DESTRUCTIVE_SEED=true npm run db:seed
 
 ## License
 
-Private project — for demo and development use.
+This project is open source under the [MIT License](LICENSE).
