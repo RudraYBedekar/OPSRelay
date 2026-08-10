@@ -105,11 +105,11 @@ export function getMcpHealth(): {
 
 export function assertMcpConfigured(): void {
   if (mcpConfig.mode === 'disabled') {
-    throw new Error('MCP investigator is not configured');
+    throw Object.assign(new Error('MCP investigator is not configured'), { status: 503 });
   }
   if (mcpConfig.mode === 'managed_mcp') {
     if (!mcpConfig.clusterId || !mcpConfig.accessToken) {
-      throw new Error('Managed MCP requires MCP_CLUSTER_ID and MCP_ACCESS_TOKEN');
+      throw Object.assign(new Error('Managed MCP requires MCP_CLUSTER_ID and MCP_ACCESS_TOKEN'), { status: 503 });
     }
   }
 }

@@ -1,4 +1,5 @@
 import { secureQuery, secureQueryOne } from '../secureDb.js';
+import { query } from '../db.js';
 import { isAuthEnabled } from '../config/auth.js';
 import type { AuthUser } from './authService.js';
 
@@ -327,7 +328,7 @@ export async function getInvestigatorAccessScope(viewer: AuthUser): Promise<Inve
   const allowedOwnerMemberIds = [...new Set([viewerMemberId, ...grantedOwnerIds])];
   const grantedSet = new Set(grantedOwnerIds);
 
-  const rows = await secureQuery<{ id: string; data: Record<string, unknown> }>(
+  const rows = await query<{ id: string; data: Record<string, unknown> }>(
     `SELECT id, data FROM incidents WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ${MAX_SCOPE_INCIDENTS}`,
   );
 

@@ -37,7 +37,7 @@ export function buildOwnerScopeSql(scope: InvestigatorAccessScope): string {
   }
 
   if (parts.length === 0) {
-    throw new Error('Investigator access scope is empty');
+    throw Object.assign(new Error('Investigator access scope is empty'), { status: 403 });
   }
 
   return `(${parts.join(' OR ')})`;

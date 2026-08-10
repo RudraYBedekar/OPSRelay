@@ -29,9 +29,9 @@ export async function executeEvidenceQuery(spec: InvestigationQuerySpec): Promis
       transport: 'local_sql_demo',
       toolsUsed: ['select_query'],
     };
-  } catch {
+  } catch (err) {
     markMcpRequestFailed(true);
-    throw new Error('Evidence query failed');
+    throw Object.assign(new Error('Evidence query failed'), { status: 503 });
   }
 }
 
